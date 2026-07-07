@@ -231,23 +231,10 @@ footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:
 <div id="importModal" class="modal-overlay hidden">
   <div class="modal">
     <h2>Importer une classe</h2>
-
-    <h3>🌐 Import automatique (connexion internet requise)</h3>
-    <p>Cliquez directement sur la classe à importer depuis le Google Sheet du collège :</p>
-    <div class="import-class-grid" id="importClassButtonsOnline"></div>
-    <p class="import-status" id="importStatusOnline"></p>
-
-    <hr style="margin:18px 0;border:none;border-top:1px solid var(--border);">
-
-    <h3>📄 Import depuis un fichier (fonctionne sans internet)</h3>
-    <p><strong>Étape 1</strong> — Téléchargez la liste des élèves depuis Google Sheets : ouvrez l'onglet « Liste des élèves du collège », puis <em>Fichier &gt; Télécharger &gt; Valeurs séparées par une virgule (.csv)</em>.</p>
-    <p><a href="https://docs.google.com/spreadsheets/d/10tVQpcayUlpOwg92iSpWciAQqtZR65gKDVW3QissGwg/edit?gid=954837618#gid=954837618" target="_blank" rel="noopener">Ouvrir le Google Sheet dans un nouvel onglet</a></p>
-    <p><strong>Étape 2</strong> — Choisissez ce fichier téléchargé :</p>
-    <input type="file" id="importFileInput" accept=".csv,text/csv" onchange="handleImportFileChange(this)" style="width:100%;margin-bottom:10px;">
-    <p><strong>Étape 3</strong> — Choisissez la classe à importer :</p>
+    <p>Les classes sont vérifiées automatiquement depuis le Google Sheet du collège. Les classes marquées 🆕 n'ont pas encore été importées.</p>
     <div class="import-class-grid" id="importClassButtons"></div>
     <p class="import-status" id="importStatus"></p>
-
+    <p class="help-text"><a href="https://docs.google.com/spreadsheets/d/10tVQpcayUlpOwg92iSpWciAQqtZR65gKDVW3QissGwg/edit?gid=954837618#gid=954837618" target="_blank" rel="noopener">Ouvrir le Google Sheet dans un nouvel onglet</a></p>
     <button class="btn-secondary" onclick="closeImportModal()">Fermer</button>
   </div>
 </div>
@@ -384,41 +371,32 @@ function niveauPill(niveau){
 
 /* ===================== IMPORT ===================== */
 let pendingImportRows = null;
-function openImportModal(){
+let pendingImportHeaderIdx = null;
+
+async function openImportModal(){
   pendingImportRows = null;
-
-  const containerOnline = qs('#importClassButtonsOnline');
-  containerOnline.innerHTML='';
-  CLASSES_DISPONIBLES.forEach(c=>{
-    const already = !!STATE.classes[c];
-    const btn = document.createElement('button');
-    btn.className = already ? 'btn-secondary' : 'btn-primary';
-    btn.textContent = already ? `${c} (ré-importer)` : c;
-    btn.onclick = ()=>importerClasseEnLigne(c);
-    containerOnline.appendChild(btn);
-  });
-  qs('#importStatusOnline').textContent='';
-
-  const container = qs('#importClassButtons');
-  container.innerHTML='';
-  CLASSES_DISPONIBLES.forEach(c=>{
-    const already = !!STATE.classes[c];
-    const btn = document.createElement('button');
-    btn.className = already ? 'btn-secondary' : 'btn-primary';
-    btn.textContent = already ? `${c} (ré-importer)` : c;
-    btn.disabled = true;
-    btn.onclick = ()=>importerClasseDepuisFichier(c);
-    container.appendChild(btn);
-  });
-  qs('#importFileInput').value='';
-  qs('#importStatus').textContent="Choisissez d'abord le fichier CSV téléchargé depuis le Google Sheet.";
-
+  pendingImportHeaderIdx = null;
+  qs('#importClassButtons').innerHTML='';
+  const statusEl = qs('#importStatus');
+  statusEl.textContent = 'Vérification des classes disponibles depuis le Google Sheet...';
   qs('#importModal').classList.remove('hidden');
+  try{
+    const res = await fetch(CSV_URL, {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const text = await res.text();
+    const rows = parseCSV(text);
+    if(rows.length<2) throw new Error('Le fichier semble vide.');
+    pendingImportHeaderIdx = parseHeaderIndices(rows);
+    pendingImportRows = rows;
+    statusEl.textContent = '';
+    renderImportClassButtons();
+  }catch(err){
+    statusEl.textContent = "Erreur : "+err.message+" — Vérifiez votre connexion internet et le partage du Google Sheet.";
+  }
 }
 function closeImportModal(){ qs('#importModal').classList.add('hidden'); }
 
-function buildStudentsFromRows(rows, classeCible){
-  if(rows.length<2) throw new Error('Le fichier semble vide.');
+function parseHeaderIndices(rows){
   const header = rows[0].map(normalizeHeader);
   const idxNom = header.findIndex(h=>h==='nom');
   const idxPrenom = header.findIndex(h=>h==='prenom');
@@ -427,17 +405,20 @@ function buildStudentsFromRows(rows, classeCible){
   if(idxNom===-1||idxPrenom===-1||idxClasse===-1||idxSexe===-1){
     throw new Error('Colonnes introuvables. Le fichier doit contenir : Nom, Prénom, Classe, Sexe.');
   }
+  return {idxNom, idxPrenom, idxClasse, idxSexe};
+}
+function buildStudentsFromRows(rows, classeCible, idx){
   const targetNorm = normalizeClasse(classeCible);
   const students = [];
   for(let i=1;i<rows.length;i++){
     const r = rows[i];
     if(!r || r.every(c=>!c || !c.trim())) continue;
-    const classeVal = (r[idxClasse]||'').trim();
+    const classeVal = (r[idx.idxClasse]||'').trim();
     if(normalizeClasse(classeVal)!==targetNorm) continue;
-    const nom = (r[idxNom]||'').trim();
-    const prenom = (r[idxPrenom]||'').trim();
+    const nom = (r[idx.idxNom]||'').trim();
+    const prenom = (r[idx.idxPrenom]||'').trim();
     if(!nom && !prenom) continue;
-    const sexeRaw = (r[idxSexe]||'').trim().toUpperCase();
+    const sexeRaw = (r[idx.idxSexe]||'').trim().toUpperCase();
     const sexe = sexeRaw.startsWith('F') ? 'F' : 'M';
     students.push({
       id: uid(),
@@ -449,10 +430,32 @@ function buildStudentsFromRows(rows, classeCible){
       results: {}
     });
   }
-  if(students.length===0) throw new Error(`Aucun élève trouvé pour ${classeCible}. Vérifiez la colonne "Classe".`);
   students.sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   assignGroups(students);
   return students;
+}
+function renderImportClassButtons(){
+  const container = qs('#importClassButtons');
+  container.innerHTML='';
+  CLASSES_DISPONIBLES.forEach(c=>{
+    const dejaImportee = !!STATE.classes[c];
+    const nb = buildStudentsFromRows(pendingImportRows, c, pendingImportHeaderIdx).length;
+    const btn = document.createElement('button');
+    if(nb===0){
+      btn.className = 'btn-secondary';
+      btn.textContent = `${c} — aucun élève trouvé`;
+      btn.disabled = true;
+    } else if(dejaImportee){
+      btn.className = 'btn-secondary';
+      btn.textContent = `${c} — déjà importée (ré-importer, ${nb} élève(s))`;
+      btn.onclick = ()=>importerClasseDepuisSheet(c);
+    } else {
+      btn.className = 'btn-primary';
+      btn.textContent = `🆕 ${c} — ${nb} élève(s) à importer`;
+      btn.onclick = ()=>importerClasseDepuisSheet(c);
+    }
+    container.appendChild(btn);
+  });
 }
 function finalizeImport(classeCible, students){
   STATE.classes[classeCible] = { students, testMode:null, activeGroup:'A', runState:{running:false} };
@@ -467,55 +470,11 @@ function confirmerReimport(classeCible){
   if(!STATE.classes[classeCible]) return true;
   return confirm(`La classe ${classeCible} existe déjà. Ré-importer va remplacer la liste des élèves et effacer les résultats déjà enregistrés pour cette classe. Continuer ?`);
 }
-
-async function importerClasseEnLigne(classeCible){
-  if(!confirmerReimport(classeCible)) return;
-  const statusEl = qs('#importStatusOnline');
-  statusEl.textContent = 'Chargement en cours...';
-  try{
-    const res = await fetch(CSV_URL, {cache:'no-store'});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const text = await res.text();
-    const rows = parseCSV(text);
-    const students = buildStudentsFromRows(rows, classeCible);
-    finalizeImport(classeCible, students);
-  }catch(err){
-    statusEl.textContent = "Erreur : "+err.message+" — Si vous ouvrez ce fichier en double-cliquant depuis votre ordinateur (adresse commençant par file://), utilisez plutôt l'import par fichier ci-dessous.";
-  }
-}
-
-function handleImportFileChange(input){
-  const file = input.files[0];
-  const statusEl = qs('#importStatus');
-  if(!file) return;
-  statusEl.textContent = 'Lecture du fichier...';
-  const reader = new FileReader();
-  reader.onload = (e)=>{
-    try{
-      const rows = parseCSV(e.target.result);
-      if(rows.length<2) throw new Error('Le fichier semble vide.');
-      pendingImportRows = rows;
-      qsa('#importClassButtons button').forEach(b=>b.disabled=false);
-      statusEl.textContent = `Fichier chargé (${rows.length-1} ligne(s)). Choisissez la classe à importer.`;
-    }catch(err){
-      pendingImportRows = null;
-      statusEl.textContent = 'Erreur : '+err.message;
-    }
-  };
-  reader.onerror = ()=>{ statusEl.textContent = "Erreur : impossible de lire ce fichier."; };
-  reader.readAsText(file, 'UTF-8');
-}
-
-function importerClasseDepuisFichier(classeCible){
+function importerClasseDepuisSheet(classeCible){
   if(!pendingImportRows) return;
   if(!confirmerReimport(classeCible)) return;
-  const statusEl = qs('#importStatus');
-  try{
-    const students = buildStudentsFromRows(pendingImportRows, classeCible);
-    finalizeImport(classeCible, students);
-  }catch(err){
-    statusEl.textContent = "Erreur : "+err.message;
-  }
+  const students = buildStudentsFromRows(pendingImportRows, classeCible, pendingImportHeaderIdx);
+  finalizeImport(classeCible, students);
 }
 function assignGroups(students){
   const half = Math.ceil(students.length/2);
