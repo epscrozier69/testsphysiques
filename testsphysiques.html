@@ -158,10 +158,12 @@ thead th.sticky-col{background:#334155;z-index:3;}
 .sexe-icon{font-weight:900;font-size:1rem;}
 .sexe-icon.sexe-F{color:var(--fille);}
 .sexe-icon.sexe-M{color:var(--garcon);}
-.table-wrapper.scroll-y{max-height:60vh;overflow-y:auto;}
 .compact th,.compact td{padding:4px 6px;font-size:.78rem;}
 .reset-icon{background:none;border:none;cursor:pointer;font-size:.85rem;padding:0 4px;min-height:auto;color:var(--muted);}
 .reset-icon:hover{color:var(--primary-dark);}
+.rank-line{white-space:nowrap;line-height:1.3;}
+.rank-line-sexe{color:var(--muted);font-size:.85em;}
+.btn-xl{font-size:1.3rem;padding:18px 32px;min-height:64px;border-radius:14px;}
 .dc-tile{
   display:inline-block;padding:8px 14px;border-radius:10px;
   background:var(--primary);color:#fff;font-weight:800;font-size:.95rem;
@@ -417,14 +419,17 @@ function rankCell(ranks, studentId, sexe){
   const rg = ranks.gen[studentId];
   const rs = sexe==='F' ? ranks.F[studentId] : ranks.M[studentId];
   if(rg==null) return '—';
-  return `${medalFor(rg)}${rg}${rs!=null?` <small>(sexe:${rs})</small>`:''}`;
+  const sexeLabel = sexe==='F' ? 'filles' : 'garçons';
+  const genLine = `<div class="rank-line">${medalFor(rg)}<strong>${rg}<sup>e</sup></strong> général</div>`;
+  const sexeLine = rs!=null ? `<div class="rank-line rank-line-sexe">${medalFor(rs)}<strong>${rs}<sup>e</sup></strong> ${sexeLabel}</div>` : '';
+  return genLine+sexeLine;
 }
 function twoColumnBlocks(theadHtml, rowsArr, colspan){
-  if(rowsArr.length===0) return `<div class="table-wrapper scroll-y"><table>${theadHtml}<tbody><tr><td colspan="${colspan}">Aucun élève</td></tr></tbody></table></div>`;
+  if(rowsArr.length===0) return `<div class="table-wrapper"><table>${theadHtml}<tbody><tr><td colspan="${colspan}">Aucun élève</td></tr></tbody></table></div>`;
   const half = Math.ceil(rowsArr.length/2);
   const col1 = rowsArr.slice(0,half).join('');
   const col2 = rowsArr.slice(half).join('');
-  const block = rowsHtml => `<div class="table-wrapper scroll-y compact"><table>${theadHtml}<tbody>${rowsHtml}</tbody></table></div>`;
+  const block = rowsHtml => `<div class="table-wrapper compact"><table>${theadHtml}<tbody>${rowsHtml}</tbody></table></div>`;
   return `<div class="ll-columns">${block(col1)}${col2?block(col2):''}</div>`;
 }
 function niveauPill(niveau){
@@ -881,7 +886,7 @@ function renderLLGroupColumn(classe, group, ranks){
   return `
     <div class="card">
       <h3>Groupe ${group} (${students.length})</h3>
-      <div class="table-wrapper scroll-y">
+      <div class="table-wrapper">
         <table>
           <thead><tr style="background:${group==='A'?'var(--col-1)':'var(--col-2)'};"><th>Élève</th><th>Groupe</th><th>Résultat</th><th>Rang</th><th>Absent</th></tr></thead>
           <tbody>${rows || '<tr><td colspan="5">Aucun élève</td></tr>'}</tbody>
@@ -1177,8 +1182,8 @@ function renderVitesse(classe){
         <div>Élève sélectionné : <strong>${escapeHtml(selName)}</strong></div>
         <div class="chrono-display" id="vChronoDisplay-${slug(classe)}">0.00 s</div>
         ${!running
-          ? `<button class="btn-primary" ${selIdx==null?'disabled':''} onclick="startVitesseChrono('${escapeHtml(classe)}')">▶️ Démarrer</button>`
-          : `<button class="btn-danger" onclick="stopVitesseChrono('${escapeHtml(classe)}')">⏹️ Arrêter</button>`}
+          ? `<button class="btn-primary btn-xl" ${selIdx==null?'disabled':''} onclick="startVitesseChrono('${escapeHtml(classe)}')">▶️ Démarrer</button>`
+          : `<button class="btn-danger btn-xl" onclick="stopVitesseChrono('${escapeHtml(classe)}')">⏹️ Arrêter</button>`}
       </div>
       <p class="help-text">Cliquez sur un élève pour le sélectionner, puis « Démarrer » lance le chrono. « Arrêter » enregistre le temps et sélectionne automatiquement l'élève suivant.</p>
     </div>
@@ -1324,7 +1329,7 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
   return `
     <div class="card">
       <h3>Groupe ${group} (${students.length})</h3>
-      <div class="table-wrapper scroll-y">
+      <div class="table-wrapper">
         <table>
           <thead><tr style="background:${group==='A'?'var(--col-1)':'var(--col-2)'};"><th>Élève</th><th>Tours / Résultat</th><th>Rang</th><th>Absent</th></tr></thead>
           <tbody>${rows || '<tr><td colspan="4">Aucun élève</td></tr>'}</tbody>
