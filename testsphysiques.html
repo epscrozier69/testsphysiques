@@ -837,6 +837,7 @@ function renderLucLeger(classe){
       ${renderLLGroupColumn(classe,'A',computeTestRanks(classe,'lucLeger'))}
       ${renderLLGroupColumn(classe,'B',computeTestRanks(classe,'lucLeger'))}
     </div>
+    <div class="card">${classAverageHtml(classe, 'lucLeger')}</div>
   `;
   if(running) updateLiveDisplay(classe);
 }
@@ -1047,7 +1048,8 @@ function renderSimpleNumericTest(classe, testKey){
     <div class="card">
       <p class="help-text">Cliquez sur un élève ou saisissez la valeur (${config.unite}) puis appuyez sur Entrée pour valider et passer à l'élève suivant.</p>
     </div>
-    ${twoColumnBlocks(thead, rowsArr, 5)}`;
+    ${twoColumnBlocks(thead, rowsArr, 5)}
+    <div class="card">${classAverageHtml(classe, testKey)}</div>`;
 }
 function focusSimpleInput(classeSlug, testKey, idx){
   const el = document.getElementById(`si-input-${testKey}-${classeSlug}-${idx}`);
@@ -1127,7 +1129,8 @@ function renderSouplesse(classe){
     <div class="card">
       <p class="help-text">Choisissez le niveau atteint pour chaque élève dans la liste déroulante.</p>
     </div>
-    ${twoColumnBlocks(thead, rowsArr, 5)}`;
+    ${twoColumnBlocks(thead, rowsArr, 5)}
+    <div class="card">${classAverageHtml(classe, 'souplesse')}</div>`;
 }
 async function validerSouplesse(classe, idx, value){
   const perf = parseFloat(value);
@@ -1187,7 +1190,8 @@ function renderVitesse(classe){
       </div>
       <p class="help-text">Cliquez sur un élève pour le sélectionner, puis « Démarrer » lance le chrono. « Arrêter » enregistre le temps et sélectionne automatiquement l'élève suivant.</p>
     </div>
-    ${twoColumnBlocks(thead, rowsArr, 5)}`;
+    ${twoColumnBlocks(thead, rowsArr, 5)}
+    <div class="card">${classAverageHtml(classe, 'vitesse')}</div>`;
   if(running) updateVitesseChronoDisplay(classe);
 }
 function selectVitesseStudent(classe, idx){
@@ -1285,6 +1289,7 @@ function renderDemiCooper(classe){
       ${renderDemiCooperGroupColumn(classe,'A',computeTestRanks(classe,'demiCooper'))}
       ${renderDemiCooperGroupColumn(classe,'B',computeTestRanks(classe,'demiCooper'))}
     </div>
+    <div class="card">${classAverageHtml(classe, 'demiCooper')}</div>
   `;
   if(running) updateDemiCooperLive(classe);
 }
@@ -1547,7 +1552,7 @@ function renderVitesse40Roster(classe, students){
       </tr>`;
   });
   const thead = `<thead><tr style="background:var(--col-5);"><th>Élève</th><th>Temps</th><th>Niveau</th><th>Rang</th><th>Abs.</th></tr></thead>`;
-  container.innerHTML = twoColumnBlocks(thead, rowsArr, 5);
+  container.innerHTML = twoColumnBlocks(thead, rowsArr, 5) + `<div class="card">${classAverageHtml(classe, 'vitesse40')}</div>`;
 }
 async function setVitesse40Manuel(classe, studentId, value){
   const val = parseFloat(value);
@@ -1580,63 +1585,83 @@ function toggleAbsentVitesse40(classe, studentId, checked){
 /* ===================== DEFINITIONS DES EPREUVES (partagé Résultats/Statistiques) ===================== */
 const TEST_DEFS = {
   lucLeger: {
-    label:'Endurance (Luc Léger)', resultsKey:'lucLeger', higherIsBetter:true,
+    label:'Endurance (Luc Léger)', resultsKey:'lucLeger', higherIsBetter:true, unite:'km/h',
     isDone:r=>!!(r&&r.done), isAbsent:r=>!!(r&&r.absent),
     display:r=>`Palier ${r.palier} · ${r.vitesse.toFixed(1)} km/h · ${formatMMSS(r.temps)}`,
     value:r=>r.vitesse*100000+r.temps,
+    avgValue:r=>r.vitesse,
     niveau:r=>niveauLucLeger(r.vitesse)
   },
   longueur: {
-    label:'Longueur', resultsKey:'longueur', higherIsBetter:true,
+    label:'Longueur', resultsKey:'longueur', higherIsBetter:true, unite:'cm',
     isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>!!(r&&r.absent),
-    display:r=>`${r.valeur} cm`, value:r=>r.valeur,
+    display:r=>`${r.valeur} cm`, value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauLongueur(r.valeur)
   },
   vitesse: {
-    label:'Vitesse 30m', resultsKey:'vitesse', higherIsBetter:false,
+    label:'Vitesse 30m', resultsKey:'vitesse', higherIsBetter:false, unite:'s',
     isDone:r=>!!(r&&r.temps!=null), isAbsent:r=>!!(r&&r.absent),
-    display:r=>`${r.temps} s`, value:r=>r.temps,
+    display:r=>`${r.temps} s`, value:r=>r.temps, avgValue:r=>r.temps,
     niveau:r=>niveauVitesse(r.temps)
   },
   detenteVerticale: {
-    label:'Détente verticale', resultsKey:'detenteVerticale', higherIsBetter:true,
+    label:'Détente verticale', resultsKey:'detenteVerticale', higherIsBetter:true, unite:'cm',
     isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>!!(r&&r.absent),
-    display:r=>`${r.valeur} cm`, value:r=>r.valeur,
+    display:r=>`${r.valeur} cm`, value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauFromNote(r.note)
   },
   pompes: {
-    label:'Pompes', resultsKey:'pompes', higherIsBetter:true,
+    label:'Pompes', resultsKey:'pompes', higherIsBetter:true, unite:'reps',
     isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>!!(r&&r.absent),
-    display:r=>`${r.valeur} reps`, value:r=>r.valeur,
+    display:r=>`${r.valeur} reps`, value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauFromNote(r.note)
   },
   souplesse: {
-    label:'Souplesse', resultsKey:'souplesse', higherIsBetter:true,
+    label:'Souplesse', resultsKey:'souplesse', higherIsBetter:true, unite:'/5',
     isDone:r=>!!(r&&r.perf!=null), isAbsent:r=>!!(r&&r.absent),
     display:r=>{ const l=SOUPLESSE_LEVELS.find(x=>x.perf===r.perf); return l?l.label:String(r.perf); },
-    value:r=>r.perf,
+    value:r=>r.perf, avgValue:r=>r.perf,
     niveau:r=>niveauFromNote(r.note)
   },
   demiCooper: {
-    label:'Endurance (Demi-Cooper)', resultsKey:'demiCooper', higherIsBetter:true,
+    label:'Endurance (Demi-Cooper)', resultsKey:'demiCooper', higherIsBetter:true, unite:'m',
     isDone:r=>!!(r&&r.done), isAbsent:r=>!!(r&&r.absent),
     display:r=>`${r.valeur} m (${r.tours} tour(s) + ${r.distanceSupp||0}m)`,
-    value:r=>r.valeur,
+    value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauFromNote(r.note)
   },
   vitesse40: {
-    label:'Vitesse 40m', resultsKey:'vitesse40', higherIsBetter:false,
+    label:'Vitesse 40m', resultsKey:'vitesse40', higherIsBetter:false, unite:'s',
     isDone:r=>!!(r&&r.temps!=null), isAbsent:r=>!!(r&&r.absent),
-    display:r=>`${r.temps} s`, value:r=>r.temps,
+    display:r=>`${r.temps} s`, value:r=>r.temps, avgValue:r=>r.temps,
     niveau:r=>niveauFromNote(r.note)
   },
   detenteHorizontale: {
-    label:'Détente horizontale', resultsKey:'detenteHorizontale', higherIsBetter:true,
+    label:'Détente horizontale', resultsKey:'detenteHorizontale', higherIsBetter:true, unite:'m',
     isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>!!(r&&r.absent),
-    display:r=>`${r.valeur} m`, value:r=>r.valeur,
+    display:r=>`${r.valeur} m`, value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauFromNote(r.note)
   }
 };
+function computeClassAverage(classe, testKey){
+  const def = TEST_DEFS[testKey];
+  const cl = STATE.classes[classe];
+  const list = cl.students.filter(s=>def.isDone(s.results[def.resultsKey]));
+  const vals = list.map(s=>def.avgValue(s.results[def.resultsKey]));
+  const notes = list.map(s=>s.results[def.resultsKey].note).filter(n=>n!=null && !isNaN(n));
+  const round2 = v=>Math.round(v*100)/100;
+  return {
+    count: list.length,
+    avgValue: vals.length ? round2(vals.reduce((a,b)=>a+b,0)/vals.length) : null,
+    avgNote: notes.length ? round2(notes.reduce((a,b)=>a+b,0)/notes.length) : null
+  };
+}
+function classAverageHtml(classe, testKey){
+  const def = TEST_DEFS[testKey];
+  const { count, avgValue, avgNote } = computeClassAverage(classe, testKey);
+  if(count===0) return `<p class="help-text">Moyenne de la classe : pas encore de résultat.</p>`;
+  return `<p class="help-text"><strong>Moyenne de la classe</strong> (${count} résultat(s)) — Performance : <strong>${avgValue!=null?avgValue:'—'} ${def.unite}</strong> · Note : <strong>${avgNote!=null?avgNote:'—'}/20</strong></p>`;
+}
 const NIVEAU_TESTS = {
   '6eme': ['lucLeger','longueur','vitesse','detenteVerticale','souplesse','pompes'],
   '5eme': ['demiCooper','vitesse40','detenteHorizontale','detenteVerticale','souplesse','pompes'],
@@ -1658,9 +1683,7 @@ function buildResultColumns(niveau){
     testCols.push(
       {key:testKey+'_resultat', label:def.label+' - Résultat', colorVar},
       {key:testKey+'_niveau', label:def.label+' - Niveau', colorVar},
-      {key:testKey+'_note', label:def.label+' - Note', colorVar},
-      {key:testKey+'_rangGen', label:def.label+' - Rang général', colorVar},
-      {key:testKey+'_rangSexe', label:def.label+' - Rang sexe', colorVar}
+      {key:testKey+'_note', label:def.label+' - Note', colorVar}
     );
   });
   return base.concat(testCols);
@@ -1691,17 +1714,6 @@ function buildResultRows(classe){
   const students = cl.students;
   const niveau = getNiveau(classe);
   const testKeys = NIVEAU_TESTS[niveau];
-  const rankMaps = {};
-  testKeys.forEach(testKey=>{
-    const def = TEST_DEFS[testKey];
-    const filter = s=>def.isDone(s.results[def.resultsKey]);
-    const val = s=>def.value(s.results[def.resultsKey]);
-    rankMaps[testKey] = {
-      gen: computeRankMap(students, val, def.higherIsBetter, filter),
-      F: computeRankMap(students, val, def.higherIsBetter, s=>filter(s)&&s.sexe==='F'),
-      M: computeRankMap(students, val, def.higherIsBetter, s=>filter(s)&&s.sexe==='M')
-    };
-  });
   return students.map(s=>{
     const row = { id:s.id, nomPrenom:s.nomPrenom, classe:s.classe, sexe:s.sexe };
     testKeys.forEach(testKey=>{
@@ -1712,9 +1724,6 @@ function buildResultRows(classe){
       row[testKey+'_resultat'] = done ? def.display(r) : (absent ? 'Absent' : '—');
       row[testKey+'_niveau'] = done ? def.niveau(r) : (absent ? null : '—');
       row[testKey+'_note'] = done && r.note!=null ? r.note : '—';
-      const rm = rankMaps[testKey];
-      row[testKey+'_rangGen'] = rm.gen[s.id]!=null ? rm.gen[s.id] : '—';
-      row[testKey+'_rangSexe'] = (s.sexe==='F'?rm.F[s.id]:rm.M[s.id]) ?? '—';
     });
     return row;
   });
@@ -1757,7 +1766,6 @@ function renderResultats(){
       let display;
       if(c.key.endsWith('niveau')) display = val==='—' ? '—' : niveauPill(val);
       else if(c.key.endsWith('note')) display = (typeof val==='number') ? notePill(val) : val;
-      else if(c.key.endsWith('rangGen')) display = (typeof val==='number') ? medalFor(val)+val : val;
       else display = escapeHtml(String(val));
       const sticky = i===0 ? ' sticky-col' : '';
       return `<td class="${sticky}">${display}</td>`;
