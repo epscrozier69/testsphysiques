@@ -668,7 +668,10 @@ function renderImportClassButtons(){
   });
 }
 function finalizeImport(classeCible, students){
-  STATE.classes[classeCible] = { students, testMode:null, activeGroup:'A', runState:{running:false} };
+  const existing = STATE.classes[classeCible];
+  STATE.classes[classeCible] = existing
+    ? { ...existing, students }
+    : { students, testMode:null, activeGroup:'A', runState:{running:false} };
   if(!STATE.order.includes(classeCible)) STATE.order.push(classeCible);
   saveState();
   renderMainTabs();
@@ -676,15 +679,40 @@ function finalizeImport(classeCible, students){
   switchTab('classe-'+slug(classeCible));
   closeImportModal();
 }
-function confirmerReimport(classeCible){
-  if(!STATE.classes[classeCible]) return true;
-  return confirm(`La classe ${classeCible} existe déjà. Ré-importer va remplacer la liste des élèves et effacer les résultats déjà enregistrés pour cette classe. Continuer ?`);
+function mergeStudents(existingStudents, newStudents){
+  const existingByKey = new Map(existingStudents.map(s=>[s.nomPrenom+'|'+s.sexe, s]));
+  return newStudents.map(ns=>{
+    const key = ns.nomPrenom+'|'+ns.sexe;
+    const existing = existingByKey.get(key);
+    if(existing) return { ...existing, classe: ns.classe };
+    return { ...ns, group: null };
+  });
+}
+function assignGroupsToNewStudents(students){
+  let countA = students.filter(s=>s.group==='A').length;
+  let countB = students.filter(s=>s.group==='B').length;
+  students.forEach(s=>{
+    if(!s.group){
+      if(countA<=countB){ s.group='A'; countA++; } else { s.group='B'; countB++; }
+    }
+  });
 }
 function importerClasseDepuisSheet(classeCible){
   if(!pendingImportRows) return;
-  if(!confirmerReimport(classeCible)) return;
-  const students = buildStudentsFromRows(pendingImportRows, classeCible, pendingImportHeaderIdx);
-  finalizeImport(classeCible, students);
+  const existing = STATE.classes[classeCible];
+  const newStudents = buildStudentsFromRows(pendingImportRows, classeCible, pendingImportHeaderIdx);
+  let finalStudents;
+  if(existing){
+    const nbAvant = existing.students.length;
+    finalStudents = mergeStudents(existing.students, newStudents);
+    assignGroupsToNewStudents(finalStudents);
+    finalStudents.sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
+    const nbNouveaux = finalStudents.length - nbAvant;
+    if(nbNouveaux>0 && !confirm(`${nbNouveaux} nouvel(aux) élève(s) seront ajouté(s) à ${classeCible}. Les élèves déjà présents conservent leurs résultats. Continuer ?`)) return;
+  } else {
+    finalStudents = newStudents;
+  }
+  finalizeImport(classeCible, finalStudents);
 }
 function assignGroups(students){
   const half = Math.ceil(students.length/2);
@@ -869,12 +897,7 @@ function renderLLGroupColumn(classe, group, ranks){
     return `
       <tr class="${rowClass} ${clickable?'row-clickable':''}" ${clickable?`onclick="recordLucLegerResult('${escapeHtml(classe)}','${s.id}')"`:''}>
         <td>${nomCell}</td>
-        <td onclick="event.stopPropagation()">
-          <select onchange="moveGroup('${escapeHtml(classe)}','${s.id}',this.value)">
-            <option value="A" ${s.group==='A'?'selected':''}>A</option>
-            <option value="B" ${s.group==='B'?'selected':''}>B</option>
-          </select>
-        </td>
+        <td onclick="event.stopPropagation()">${groupCheckboxes(classe,s.id,s.group)}</td>
         <td onclick="event.stopPropagation()">${resultCell}</td>
         <td>${r&&r.absent?niveauPill(null):(niveau?niveauPill(niveau):'—')}</td>
         <td>${r&&r.note!=null?notePill(r.note):'—'}${r&&r.done?resetBtn(classe,s.id,'lucLeger'):''}</td>
@@ -932,6 +955,11 @@ function moveGroup(classe, studentId, newGroup){
   s.group = newGroup;
   saveState();
   renderClassTab(classe);
+}
+function groupCheckboxes(classe, studentId, group){
+  return `
+    <label><input type="checkbox" ${group==='A'?'checked':''} onclick="event.stopPropagation();moveGroup('${escapeHtml(classe)}','${studentId}','A')"> A</label>
+    <label><input type="checkbox" ${group==='B'?'checked':''} onclick="event.stopPropagation();moveGroup('${escapeHtml(classe)}','${studentId}','B')"> B</label>`;
 }
 function toggleAbsentLL(classe, studentId, checked){
   const s = STATE.classes[classe].students.find(s=>s.id===studentId);
@@ -1269,28 +1297,27 @@ function renderDemiCooper(classe){
   if(!cl.trackSize){ cl.trackSize = 150; saveState(); }
   const container = qs('#testContent-'+slug(classe));
   const running = cl.runState.running;
-  const locked = cl.runState.locked;
   container.innerHTML = `
     <div class="card">
       <div class="row-flex">
         <label>Taille de piste :
-          <select ${running||locked?'disabled':''} onchange="STATE.classes['${escapeHtml(classe)}'].trackSize=parseInt(this.value); saveState(); renderClassTab('${escapeHtml(classe)}')">
+          <select ${running?'disabled':''} onchange="STATE.classes['${escapeHtml(classe)}'].trackSize=parseInt(this.value); saveState(); renderClassTab('${escapeHtml(classe)}')">
             <option value="100" ${cl.trackSize===100?'selected':''}>100 m</option>
             <option value="150" ${cl.trackSize===150?'selected':''}>150 m</option>
           </select>
         </label>
         <label>Groupe qui commence :
-          <select ${running||locked?'disabled':''} onchange="STATE.classes['${escapeHtml(classe)}'].activeGroup=this.value; saveState(); renderClassTab('${escapeHtml(classe)}')">
+          <select ${running?'disabled':''} onchange="STATE.classes['${escapeHtml(classe)}'].activeGroup=this.value; saveState(); renderClassTab('${escapeHtml(classe)}')">
             <option value="A" ${cl.activeGroup==='A'?'selected':''}>Groupe A</option>
             <option value="B" ${cl.activeGroup==='B'?'selected':''}>Groupe B</option>
           </select>
         </label>
-        ${!running && !locked
+        ${!running
           ? `<button class="btn-primary" onclick="departDemiCooper('${escapeHtml(classe)}')">▶️ Départ commun (Groupe ${cl.activeGroup})</button>`
-          : running ? `<button class="btn-danger" onclick="stopDemiCooper('${escapeHtml(classe)}')">⏹️ Arrêter</button>` : ''}
+          : `<button class="btn-danger" onclick="stopDemiCooper('${escapeHtml(classe)}')">⏹️ Arrêter</button>`}
         ${running ? `<span class="ll-live" id="dc-live-${slug(classe)}">06:00</span>` : ''}
       </div>
-      <p class="help-text">${!running && !locked ? "Cliquez sur « Départ commun » pour lancer le décompte de 6 minutes." : running ? "Cliquez sur un élève du groupe actif à chaque tour effectué." : "Le temps est écoulé : saisissez la distance supplémentaire (portion de tour non terminée) pour chaque élève, puis validez."}</p>
+      <p class="help-text">${!running ? "Cliquez sur « Départ commun » pour lancer le décompte de 6 minutes. À l'arrêt, la note est calculée automatiquement ; ajoutez ensuite une distance supplémentaire si besoin pour affiner la performance." : "Cliquez sur un élève du groupe actif à chaque tour effectué."}</p>
     </div>
     <div class="ll-columns">
       ${renderDemiCooperGroupColumn(classe,'A',computeTestRanks(classe,'demiCooper'))}
@@ -1305,25 +1332,25 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
   const students = cl.students.filter(s=>s.group===group).sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const isActiveGroup = cl.activeGroup===group;
   const running = cl.runState.running && isActiveGroup;
-  const locked = cl.runState.locked && isActiveGroup;
   const rows = students.map(s=>{
     const r = s.results.demiCooper;
     const done = r && r.done;
     const absent = r && r.absent;
     const tours = r ? (r.tours||0) : 0;
     const clickableRow = running && !done && !absent;
-    let actionCell, niv=null;
+    let toursCell, distanceTotale, niv=null;
     if(done){
       niv = niveauFromNote(r.note);
-      actionCell = `
+      toursCell = `
         <input type="number" value="${r.tours}" style="width:45px" onclick="event.stopPropagation()" onchange="editDemiCooperTours('${escapeHtml(classe)}','${s.id}',this.value)"> t. +
-        <input type="number" step="0.1" value="${r.distanceSupp||0}" style="width:55px" onclick="event.stopPropagation()" onchange="editDemiCooperSupp('${escapeHtml(classe)}','${s.id}',this.value)"> m = ${r.valeur} m`;
+        <input type="number" step="0.1" value="${r.distanceSupp||0}" style="width:55px" onclick="event.stopPropagation()" onchange="editDemiCooperSupp('${escapeHtml(classe)}','${s.id}',this.value)"> m`;
+      distanceTotale = `${r.valeur} m`;
     } else if(absent){
-      actionCell = '—';
-    } else if(locked){
-      actionCell = `${tours} tour(s) + <input type="number" step="0.1" style="width:60px;" placeholder="m suppl." onchange="validerDemiCooperFinal('${escapeHtml(classe)}','${s.id}',this.value)"> m`;
+      toursCell = '—';
+      distanceTotale = '—';
     } else {
-      actionCell = `${tours} tour(s)`;
+      toursCell = `${tours} tour(s)`;
+      distanceTotale = `${tours*cl.trackSize} m`;
     }
     const nomCell = clickableRow
       ? `<span class="dc-tile">🏃 ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</span>`
@@ -1331,7 +1358,9 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
     return `
       <tr class="${absent?'row-absent':(done?'row-done':'')} ${clickableRow?'row-clickable':''}" ${clickableRow?`onclick="incrementTour('${escapeHtml(classe)}','${s.id}')"`:''}>
         <td>${nomCell}</td>
-        <td onclick="event.stopPropagation()">${actionCell}</td>
+        <td onclick="event.stopPropagation()">${groupCheckboxes(classe,s.id,s.group)}</td>
+        <td onclick="event.stopPropagation()">${toursCell}</td>
+        <td>${distanceTotale}</td>
         <td>${absent?niveauPill(null):(niv?niveauPill(niv):'—')}</td>
         <td onclick="event.stopPropagation()">${r&&r.note!=null?notePill(r.note):'—'}${done?resetBtn(classe,s.id,'demiCooper'):''}</td>
         <td>${rankGenCell(ranks,s.id)}</td>
@@ -1344,8 +1373,8 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
       <h3>Groupe ${group} (${students.length})</h3>
       <div class="table-wrapper compact">
         <table>
-          <thead><tr style="background:${group==='A'?'var(--col-1)':'var(--col-2)'};"><th>Élève</th><th>Tours/Résultat</th><th>Niveau</th><th>Note</th><th>Rg.Gén</th><th>Rg.Sexe</th><th>Abs.</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="7">Aucun élève</td></tr>'}</tbody>
+          <thead><tr style="background:${group==='A'?'var(--col-1)':'var(--col-2)'};"><th>Élève</th><th>Grp</th><th>Tours</th><th>Distance totale</th><th>Niveau</th><th>Note</th><th>Rg.Gén</th><th>Rg.Sexe</th><th>Abs.</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="9">Aucun élève</td></tr>'}</tbody>
         </table>
       </div>
     </div>
@@ -1405,12 +1434,32 @@ function updateDemiCooperLive(classe){
   if(remaining<=0) lockDemiCooper(classe);
 }
 function stopDemiCooper(classe){ lockDemiCooper(classe); }
-function lockDemiCooper(classe){
+async function lockDemiCooper(classe){
   const cl = STATE.classes[classe];
+  const activeGroup = cl.activeGroup;
   cl.runState = {running:false, locked:true};
   if(liveTimer){ clearInterval(liveTimer); liveTimer=null; }
+  const groupStudents = cl.students.filter(s=>s.group===activeGroup);
+  const toFinalize = [];
+  groupStudents.forEach(s=>{
+    if(s.results.demiCooper && (s.results.demiCooper.done || s.results.demiCooper.absent)) return;
+    const tours = s.results.demiCooper ? (s.results.demiCooper.tours||0) : 0;
+    const valeur = tours*cl.trackSize;
+    s.results.demiCooper = {absent:false, done:true, tours, distanceSupp:0, valeur, note:null};
+    toFinalize.push(s);
+  });
   saveState();
   renderClassTab(classe);
+  for(const s of toFinalize){
+    const valeurAtCall = s.results.demiCooper.valeur;
+    const note = await computeNote(classe, 'endurance', valeurAtCall, s.sexe);
+    if(s.results.demiCooper && s.results.demiCooper.valeur===valeurAtCall){
+      s.results.demiCooper.note = note;
+    }
+  }
+  saveState();
+  renderClassTab(classe);
+  syncToSheet(classe);
 }
 function incrementTour(classe, studentId){
   const cl = STATE.classes[classe];
@@ -1430,24 +1479,6 @@ function toggleAbsentDemiCooper(classe, studentId, checked){
   saveState();
   renderClassTab(classe);
   syncToSheet(classe);
-}
-async function validerDemiCooperFinal(classe, studentId, suppValue){
-  const cl = STATE.classes[classe];
-  const s = cl.students.find(s=>s.id===studentId);
-  if(!s || !s.results.demiCooper) return;
-  const supp = parseFloat(suppValue)||0;
-  const tours = s.results.demiCooper.tours||0;
-  const valeur = tours*cl.trackSize + supp;
-  s.results.demiCooper = {absent:false, done:true, tours, distanceSupp:supp, valeur, note:null};
-  saveState();
-  renderClassTab(classe);
-  const note = await computeNote(classe, 'endurance', valeur, s.sexe);
-  if(s.results.demiCooper && s.results.demiCooper.valeur===valeur){
-    s.results.demiCooper.note = note;
-    saveState();
-    renderClassTab(classe);
-    syncToSheet(classe);
-  }
 }
 
 /* ===================== VITESSE 40m (1 chrono, 3 arrivées tamponnées puis attribuées, 5-4-3ème) ===================== */
