@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<title>EPS Joliot Curie - Tests Physiques 6ème</title>
+<title>EPS Joliot Curie - Tests Physiques</title>
 <style>
 :root{
   --bg:#f2f5fb;
@@ -150,7 +150,9 @@ thead th.sticky-col{background:#334155;z-index:3;}
 .niveau-A{background:var(--niveau-abesoin);}
 .niveau-F{background:var(--niveau-fragile);}
 .niveau-S{background:var(--niveau-satisfaisant);}
+.niveau-T{background:#2563eb;}
 .niveau-abs{background:#94a3b8;}
+.note-badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#1e293b;color:#fff;font-weight:700;font-size:.75rem;margin-left:4px;}
 .medal{font-size:1.1rem;margin-right:4px;}
 .ll-columns{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 @media(max-width:820px){.ll-columns{grid-template-columns:1fr;}}
@@ -189,8 +191,8 @@ footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:
 <body>
 
 <header class="app-header">
-  <h1>EPS Joliot Curie - Tests Physiques 6ème</h1>
-  <p>Suivi des tests d'endurance (Luc Léger), force musculaire (saut en longueur) et vitesse</p>
+  <h1>EPS Joliot Curie - Tests Physiques</h1>
+  <p>Suivi des tests physiques 6ème à 3ème : endurance, vitesse, force</p>
 </header>
 
 <nav class="tabs" id="mainTabs"></nav>
@@ -239,15 +241,27 @@ footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:
   </div>
 </div>
 
-<footer class="app-footer">Collège Joliot Curie — Outil de suivi des tests physiques 6ème</footer>
+<footer class="app-footer">Collège Joliot Curie — Outil de suivi des tests physiques</footer>
 
 <script>
 /* ===================== CONSTANTES ===================== */
-const CLASSES_DISPONIBLES = ["6ème1","6ème2","6ème3","6ème4"];
 const SHEET_ID = "10tVQpcayUlpOwg92iSpWciAQqtZR65gKDVW3QissGwg";
 const SHEET_GID = "954837618";
 const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${SHEET_GID}`;
+const BAREME_GIDS = { '6eme':'705116735', '5eme':'120996016', '4eme3eme':'1231103491' };
+function baremeUrl(niveau){ return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${BAREME_GIDS[niveau]}`; }
 const STORAGE_KEY = "epsJoliotCurie_testsPhysiques_v1";
+const APPS_SCRIPT_URL = "";
+
+function getNiveau(classe){
+  const m = (classe||'').match(/(\d)/);
+  if(!m) return '6eme';
+  const d = m[1];
+  if(d==='6') return '6eme';
+  if(d==='5') return '5eme';
+  if(d==='4'||d==='3') return '4eme3eme';
+  return '6eme';
+}
 
 /* ===================== ETAT ===================== */
 let STATE = { classes:{}, order:[] };
@@ -313,10 +327,10 @@ function parseCSV(text){
 
 /* ===================== PALIERS LUC LEGER ===================== */
 function buildPalierSchedule(){
-  const schedule = [{palier:0, debut:0, duree:120, vitesse:8.0}];
+  const schedule = [{palier:0, debut:0, duree:120, vitesse:7.5}];
   let start = 120;
   for(let p=1;p<=30;p++){
-    schedule.push({palier:p, debut:start, duree:60, vitesse: Math.round((8.0+0.5*p)*10)/10});
+    schedule.push({palier:p, debut:start, duree:60, vitesse: Math.round((7.5+0.5*p)*10)/10});
     start += 60;
   }
   return schedule;
@@ -362,11 +376,145 @@ function niveauClass(niveau){
   if(niveau==='A besoins') return 'niveau-A';
   if(niveau==='Fragile') return 'niveau-F';
   if(niveau==='Satisfaisant') return 'niveau-S';
+  if(niveau==='Très bon niveau') return 'niveau-T';
   return 'niveau-abs';
+}
+function notePill(note){
+  if(note==null || isNaN(note)) return '';
+  return `<span class="note-badge">${note}/20</span>`;
 }
 function niveauPill(niveau){
   if(!niveau) return '<span class="niveau-pill niveau-abs">Absent</span>';
   return `<span class="niveau-pill ${niveauClass(niveau)}">${niveau}</span>`;
+}
+function niveauFromNote(note){
+  if(note==null || isNaN(note)) return null;
+  if(note<=6) return 'A besoins';
+  if(note<=11) return 'Fragile';
+  if(note<=16) return 'Satisfaisant';
+  return 'Très bon niveau';
+}
+
+/* ===================== BAREME (notes /20 depuis le Google Sheet) ===================== */
+const BAREME_COLUMNS = {
+  '6eme': {
+    endurance:       {raw:1,  g:2,  f:3,  higherIsBetter:true},
+    vitesse:         {raw:4,  g:5,  f:6,  higherIsBetter:false},
+    longueur:        {raw:7,  g:8,  f:9,  higherIsBetter:true},
+    detenteVerticale:{raw:10, g:11, f:12, higherIsBetter:true},
+    pompes:          {raw:13, g:14, f:15, higherIsBetter:true},
+    souplesse:       {raw:17, g:18, f:19, higherIsBetter:true}
+  },
+  '5eme': {
+    endurance:          {raw:1,  g:2,  f:3,  higherIsBetter:true},
+    vitesse:            {raw:4,  g:5,  f:6,  higherIsBetter:false},
+    detenteHorizontale: {raw:7,  g:8,  f:9,  higherIsBetter:true},
+    detenteVerticale:   {raw:10, g:11, f:12, higherIsBetter:true},
+    pompes:             {raw:13, g:14, f:15, higherIsBetter:true},
+    souplesse:          {raw:17, g:18, f:19, higherIsBetter:true}
+  },
+  '4eme3eme': {
+    endurance:          {raw:1,  g:2,  f:3,  higherIsBetter:true},
+    vitesse:            {raw:4,  g:5,  f:6,  higherIsBetter:false},
+    detenteHorizontale: {raw:7,  g:8,  f:9,  higherIsBetter:true},
+    detenteVerticale:   {raw:10, g:11, f:12, higherIsBetter:true},
+    pompes:             {raw:13, g:14, f:15, higherIsBetter:true},
+    souplesse:          {raw:17, g:18, f:19, higherIsBetter:true}
+  }
+};
+function parseFrNumber(s){
+  if(s==null) return NaN;
+  return parseFloat(String(s).trim().replace(',','.'));
+}
+function parseBaremeColumn(rows, colConfig){
+  const table = [];
+  let started = false;
+  for(const r of rows){
+    const raw = parseFrNumber(r[colConfig.raw]);
+    if(isNaN(raw)){
+      if(started) break;
+      continue;
+    }
+    started = true;
+    const g = parseFrNumber(r[colConfig.g]);
+    const f = parseFrNumber(r[colConfig.f]);
+    table.push({ raw, garcons: isNaN(g)?null:g, filles: isNaN(f)?null:f });
+  }
+  return table;
+}
+function lookupNote(table, valeur, sexe, higherIsBetter){
+  if(!table || table.length===0 || valeur==null || isNaN(valeur)) return null;
+  const key = sexe==='F' ? 'filles' : 'garcons';
+  if(higherIsBetter){
+    let best = null;
+    for(const row of table){ if(row.raw<=valeur) best = row; else break; }
+    if(!best) return table[0][key];
+    return best[key];
+  } else {
+    for(const row of table){ if(row.raw>=valeur) return row[key]; }
+    return table[table.length-1][key];
+  }
+}
+let syncTimers = {};
+function syncToSheet(classe){
+  if(!APPS_SCRIPT_URL) return;
+  if(syncTimers[classe]) clearTimeout(syncTimers[classe]);
+  syncTimers[classe] = setTimeout(()=>doSyncToSheet(classe), 1200);
+}
+async function doSyncToSheet(classe){
+  if(!APPS_SCRIPT_URL || !STATE.classes[classe]) return;
+  setSyncStatus(classe, 'Synchronisation en cours...');
+  try{
+    const columns = buildResultColumns(getNiveau(classe));
+    const rows = buildResultRows(classe).sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
+    const payload = {
+      classe,
+      header: columns.map(c=>c.label),
+      rows: rows.map(r=>columns.map(c=>{
+        const v = r[c.key];
+        return (v===undefined||v===null) ? '' : v;
+      }))
+    };
+    await fetch(APPS_SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify(payload)
+    });
+    setSyncStatus(classe, 'Dernière synchro : '+new Date().toLocaleTimeString('fr-FR'));
+  }catch(err){
+    console.warn('Synchro Google Sheet impossible', err);
+    setSyncStatus(classe, 'Synchro hors ligne (résultats conservés localement)');
+  }
+}
+function setSyncStatus(classe, text){
+  const el = document.getElementById('sync-status-'+slug(classe));
+  if(el) el.textContent = text;
+}
+let baremeCache = {};
+async function getBareme(niveau){
+  if(baremeCache[niveau]) return baremeCache[niveau];
+  const res = await fetch(baremeUrl(niveau), {cache:'no-store'});
+  if(!res.ok) throw new Error('HTTP '+res.status);
+  const text = await res.text();
+  const rows = parseCSV(text);
+  const tables = {};
+  for(const [testKey, colConfig] of Object.entries(BAREME_COLUMNS[niveau])){
+    tables[testKey] = { ...colConfig, table: parseBaremeColumn(rows, colConfig) };
+  }
+  baremeCache[niveau] = tables;
+  return tables;
+}
+async function computeNote(classe, testKey, valeur, sexe){
+  try{
+    const niveau = getNiveau(classe);
+    const bareme = await getBareme(niveau);
+    const conf = bareme[testKey];
+    if(!conf) return null;
+    return lookupNote(conf.table, valeur, sexe, conf.higherIsBetter);
+  }catch(err){
+    console.warn('Barème indisponible pour', testKey, err);
+    return null;
+  }
 }
 
 /* ===================== IMPORT ===================== */
@@ -434,18 +582,31 @@ function buildStudentsFromRows(rows, classeCible, idx){
   assignGroups(students);
   return students;
 }
+function discoverClasses(rows, idx){
+  const seen = new Map();
+  for(let i=1;i<rows.length;i++){
+    const r = rows[i];
+    if(!r) continue;
+    const classeVal = (r[idx.idxClasse]||'').trim();
+    if(!classeVal) continue;
+    const norm = normalizeClasse(classeVal);
+    if(!seen.has(norm)) seen.set(norm, classeVal);
+  }
+  return Array.from(seen.values()).sort((a,b)=>a.localeCompare(b,'fr'));
+}
 function renderImportClassButtons(){
   const container = qs('#importClassButtons');
   container.innerHTML='';
-  CLASSES_DISPONIBLES.forEach(c=>{
+  const classesTrouvees = discoverClasses(pendingImportRows, pendingImportHeaderIdx);
+  if(classesTrouvees.length===0){
+    container.innerHTML = '<p>Aucune classe trouvée dans la colonne "Classe" du Google Sheet.</p>';
+    return;
+  }
+  classesTrouvees.forEach(c=>{
     const dejaImportee = !!STATE.classes[c];
     const nb = buildStudentsFromRows(pendingImportRows, c, pendingImportHeaderIdx).length;
     const btn = document.createElement('button');
-    if(nb===0){
-      btn.className = 'btn-secondary';
-      btn.textContent = `${c} — aucun élève trouvé`;
-      btn.disabled = true;
-    } else if(dejaImportee){
+    if(dejaImportee){
       btn.className = 'btn-secondary';
       btn.textContent = `${c} — déjà importée (ré-importer, ${nb} élève(s))`;
       btn.onclick = ()=>importerClasseDepuisSheet(c);
@@ -538,13 +699,36 @@ function updateClasseSelects(){
   });
 }
 
+const TEST_OPTIONS = {
+  '6eme': [
+    {value:'lucLeger', label:'🏃 Endurance (Luc Léger)'},
+    {value:'longueur', label:'🦘 Force vitesse (Saut en longueur)'},
+    {value:'vitesse', label:'⚡ Vitesse (30m)'},
+    {value:'detenteVerticale', label:'⬆️ Force vitesse (Détente verticale)'},
+    {value:'souplesse', label:'🤸 Souplesse'},
+    {value:'pompes', label:'💪 Force des bras (Pompes)'}
+  ],
+  '5eme': [
+    {value:'demiCooper', label:'🏃 Endurance (Demi-Cooper 6mn)'},
+    {value:'vitesse40', label:'⚡ Vitesse (40m)'},
+    {value:'detenteHorizontale', label:'🦘 Force vitesse (Détente horizontale)'},
+    {value:'detenteVerticale', label:'⬆️ Force vitesse (Détente verticale)'},
+    {value:'souplesse', label:'🤸 Souplesse'},
+    {value:'pompes', label:'💪 Force des bras (Pompes)'}
+  ]
+};
+TEST_OPTIONS['4eme3eme'] = TEST_OPTIONS['5eme'];
+const GROUP_TESTS = ['lucLeger','demiCooper'];
+
 /* ===================== RENDU ONGLET CLASSE ===================== */
 function renderClassTab(classe){
   const cl = STATE.classes[classe];
   const panel = document.getElementById('tab-classe-'+slug(classe));
   if(!panel) return;
+  const niveau = getNiveau(classe);
   const nbA = cl.students.filter(s=>s.group==='A').length;
   const nbB = cl.students.filter(s=>s.group==='B').length;
+  const options = TEST_OPTIONS[niveau];
   panel.innerHTML = `
     <div class="card">
       <div class="row-flex" style="justify-content:space-between;">
@@ -553,20 +737,24 @@ function renderClassTab(classe){
           <label>Test :
             <select onchange="setTestMode('${escapeHtml(classe)}', this.value)">
               <option value="">-- Choisir --</option>
-              <option value="lucLeger" ${cl.testMode==='lucLeger'?'selected':''}>🏃 Endurance (Luc Léger)</option>
-              <option value="longueur" ${cl.testMode==='longueur'?'selected':''}>🦘 Force musculaire (Saut en longueur)</option>
-              <option value="vitesse" ${cl.testMode==='vitesse'?'selected':''}>⚡ Vitesse (30m)</option>
+              ${options.map(o=>`<option value="${o.value}" ${cl.testMode===o.value?'selected':''}>${o.label}</option>`).join('')}
             </select>
           </label>
         </div>
       </div>
-      ${cl.testMode==='lucLeger' ? `<div class="row-flex"><span class="badge groupA">Groupe A : ${nbA} élève(s)</span><span class="badge groupB">Groupe B : ${nbB} élève(s)</span></div>` : ''}
+      ${GROUP_TESTS.includes(cl.testMode) ? `<div class="row-flex"><span class="badge groupA">Groupe A : ${nbA} élève(s)</span><span class="badge groupB">Groupe B : ${nbB} élève(s)</span></div>` : ''}
+      ${APPS_SCRIPT_URL
+        ? `<p class="help-text">📤 <span id="sync-status-${slug(classe)}">Pas encore synchronisé</span> — <a href="#" onclick="doSyncToSheet('${escapeHtml(classe)}'); return false;">Synchroniser maintenant</a></p>`
+        : `<p class="help-text">📤 Écriture automatique vers Google Sheet non configurée (voir Apps Script à déployer).</p>`}
     </div>
     <div id="testContent-${slug(classe)}"></div>
   `;
   if(cl.testMode==='lucLeger') renderLucLeger(classe);
-  else if(cl.testMode==='longueur') renderLongueur(classe);
+  else if(SIMPLE_TEST_CONFIG[cl.testMode]) renderSimpleNumericTest(classe, cl.testMode);
   else if(cl.testMode==='vitesse') renderVitesse(classe);
+  else if(cl.testMode==='souplesse') renderSouplesse(classe);
+  else if(cl.testMode==='demiCooper') renderDemiCooper(classe);
+  else if(cl.testMode==='vitesse40') renderVitesse40(classe);
 }
 function setTestMode(classe, mode){
   STATE.classes[classe].testMode = mode || null;
@@ -623,7 +811,7 @@ function renderLLGroupColumn(classe, group){
             <option value="B" ${s.group==='B'?'selected':''}>B</option>
           </select>
         </td>
-        <td>${resultTxt} ${niveau?niveauPill(niveau):''}</td>
+        <td>${resultTxt} ${niveau?niveauPill(niveau):''}${r&&r.note!=null?notePill(r.note):''}</td>
         <td onclick="event.stopPropagation()">
           <label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentLL('${escapeHtml(classe)}','${s.id}',this.checked)"> Absent</label>
         </td>
@@ -654,6 +842,7 @@ function toggleAbsentLL(classe, studentId, checked){
   saveState();
   checkAutoStop(classe);
   renderClassTab(classe);
+  syncToSheet(classe);
 }
 function departCommun(classe){
   for(const c of STATE.order){
@@ -687,7 +876,7 @@ function updateLiveDisplay(classe){
   const p = PALIER_SCHEDULE[idx];
   el.textContent = `Palier ${p.palier} | ${p.vitesse.toFixed(1)} km/h | ${formatMMSS(elapsed)}`;
 }
-function recordLucLegerResult(classe, studentId){
+async function recordLucLegerResult(classe, studentId){
   const cl = STATE.classes[classe];
   if(!cl.runState.running) return;
   const audio = getAudio();
@@ -696,10 +885,17 @@ function recordLucLegerResult(classe, studentId){
   if(!student || student.group!==cl.activeGroup) return;
   if(student.results.lucLeger && (student.results.lucLeger.done||student.results.lucLeger.absent)) return;
   const r = computeResultatLucLeger(elapsed);
-  student.results.lucLeger = {done:true, absent:false, palier:r.palier, vitesse:r.vitesse, temps:elapsed};
+  student.results.lucLeger = {done:true, absent:false, palier:r.palier, vitesse:r.vitesse, temps:elapsed, note:null};
   saveState();
   checkAutoStop(classe);
   renderClassTab(classe);
+  const note = await computeNote(classe, 'endurance', r.vitesse, student.sexe);
+  if(student.results.lucLeger && student.results.lucLeger.done && student.results.lucLeger.temps===elapsed){
+    student.results.lucLeger.note = note;
+    saveState();
+    renderClassTab(classe);
+    syncToSheet(classe);
+  }
 }
 function checkAutoStop(classe){
   const cl = STATE.classes[classe];
@@ -720,58 +916,72 @@ function getAudio_onEndedSetup(){
   });
 }
 
-/* ===================== SAUT EN LONGUEUR ===================== */
-function renderLongueur(classe){
+/* ===================== TESTS "VALEUR SIMPLE" (Longueur / Détente horiz. / Détente vert. / Pompes) ===================== */
+const SIMPLE_TEST_CONFIG = {
+  longueur: {unite:'cm', step:'1', niveauFn:niveauLongueur, baremeKey:'longueur', couleur:'--col-3'},
+  detenteHorizontale: {unite:'m', step:'0.01', niveauFn:null, baremeKey:'detenteHorizontale', couleur:'--col-3'},
+  detenteVerticale: {unite:'cm', step:'1', niveauFn:null, baremeKey:'detenteVerticale', couleur:'--col-6'},
+  pompes: {unite:'reps', step:'1', niveauFn:null, baremeKey:'pompes', couleur:'--col-7'}
+};
+function renderSimpleNumericTest(classe, testKey){
+  const config = SIMPLE_TEST_CONFIG[testKey];
   const cl = STATE.classes[classe];
   const container = qs('#testContent-'+slug(classe));
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const rows = students.map((s,i)=>{
-    const r = s.results.longueur;
-    const niveau = r && !r.absent && r.distance!=null ? niveauLongueur(r.distance) : null;
+    const r = s.results[testKey];
+    const niveau = r && !r.absent && r.valeur!=null ? (config.niveauFn ? config.niveauFn(r.valeur) : niveauFromNote(r.note)) : null;
     return `
       <tr class="${r&&r.absent?'row-absent':''}">
-        <td class="row-clickable" onclick="focusLongueurInput('${slug(classe)}',${i})">${escapeHtml(s.nomPrenom)} <small>(${s.sexe})</small></td>
+        <td class="row-clickable" onclick="focusSimpleInput('${slug(classe)}','${testKey}',${i})">${escapeHtml(s.nomPrenom)} <small>(${s.sexe})</small></td>
         <td>
-          <input type="number" id="lo-input-${slug(classe)}-${i}" data-idx="${i}" data-classe="${escapeHtml(classe)}" value="${r&&r.distance!=null?r.distance:''}" placeholder="cm"
+          <input type="number" step="${config.step}" id="si-input-${testKey}-${slug(classe)}-${i}" value="${r&&r.valeur!=null?r.valeur:''}" placeholder="${config.unite}"
             ${r&&r.absent?'disabled':''}
-            onkeydown="if(event.key==='Enter'){ event.preventDefault(); validerLongueur('${escapeHtml(classe)}',${i}); }"
-            onchange="validerLongueur('${escapeHtml(classe)}',${i})" style="width:90px;">
-          cm
+            onkeydown="if(event.key==='Enter'){ event.preventDefault(); validerSimpleValeur('${escapeHtml(classe)}','${testKey}',${i}); }"
+            onchange="validerSimpleValeur('${escapeHtml(classe)}','${testKey}',${i})" style="width:90px;">
+          ${config.unite}
         </td>
-        <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}</td>
-        <td><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentSimple('${escapeHtml(classe)}','longueur',${i},this.checked)"> Absent</label></td>
+        <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}${r&&r.note!=null?notePill(r.note):''}</td>
+        <td><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentSimple('${escapeHtml(classe)}','${testKey}',${i},this.checked)"> Absent</label></td>
       </tr>`;
   }).join('');
   container.innerHTML = `
     <div class="card">
-      <p class="help-text">Cliquez sur un élève ou saisissez la distance (cm) puis appuyez sur Entrée pour valider et passer à l'élève suivant.</p>
+      <p class="help-text">Cliquez sur un élève ou saisissez la valeur (${config.unite}) puis appuyez sur Entrée pour valider et passer à l'élève suivant.</p>
       <div class="table-wrapper">
         <table>
-          <thead><tr style="background:var(--col-3);"><th>Élève</th><th>Distance</th><th>Niveau</th><th>Absent</th></tr></thead>
+          <thead><tr style="background:var(${config.couleur});"><th>Élève</th><th>Valeur</th><th>Niveau</th><th>Absent</th></tr></thead>
           <tbody>${rows || '<tr><td colspan="4">Aucun élève</td></tr>'}</tbody>
         </table>
       </div>
     </div>`;
 }
-function focusLongueurInput(classeSlug, idx){
-  const el = document.getElementById(`lo-input-${classeSlug}-${idx}`);
+function focusSimpleInput(classeSlug, testKey, idx){
+  const el = document.getElementById(`si-input-${testKey}-${classeSlug}-${idx}`);
   if(el){ el.focus(); el.select(); }
 }
-function validerLongueur(classe, idx){
-  const el = document.getElementById(`lo-input-${slug(classe)}-${idx}`);
+async function validerSimpleValeur(classe, testKey, idx){
+  const config = SIMPLE_TEST_CONFIG[testKey];
+  const el = document.getElementById(`si-input-${testKey}-${slug(classe)}-${idx}`);
   const val = parseFloat(el.value);
+  if(isNaN(val)) return;
   const cl = STATE.classes[classe];
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const student = students[idx];
-  if(!isNaN(val)){
-    student.results.longueur = {absent:false, distance:val};
-  }
+  student.results[testKey] = {absent:false, valeur:val, note:null};
   saveState();
   renderClassTab(classe);
   requestAnimationFrame(()=>{
-    const next = document.getElementById(`lo-input-${slug(classe)}-${idx+1}`);
+    const next = document.getElementById(`si-input-${testKey}-${slug(classe)}-${idx+1}`);
     if(next){ next.focus(); next.select(); }
   });
+  const note = await computeNote(classe, config.baremeKey, val, student.sexe);
+  if(student.results[testKey] && student.results[testKey].valeur===val){
+    student.results[testKey].note = note;
+    saveState();
+    renderClassTab(classe);
+    syncToSheet(classe);
+  }
 }
 function toggleAbsentSimple(classe, testKey, idx, checked){
   const cl = STATE.classes[classe];
@@ -781,6 +991,69 @@ function toggleAbsentSimple(classe, testKey, idx, checked){
   else student.results[testKey] = null;
   saveState();
   renderClassTab(classe);
+  syncToSheet(classe);
+}
+
+/* ===================== SOUPLESSE ===================== */
+const SOUPLESSE_LEVELS = [
+  {perf:0, label:'Tient moins de 10 sec'},
+  {perf:1, label:'Touche ses genoux durant 10 sec'},
+  {perf:1.5, label:'Touche ses tibias durant 10 sec'},
+  {perf:2, label:'Touche ses chevilles durant 10 sec'},
+  {perf:2.5, label:'Presque bout des doigts'},
+  {perf:3, label:'Le bout des doigts touchent le sol durant 10sec'},
+  {perf:3.5, label:'Presque main à plat'},
+  {perf:4, label:'Main à plat au sol pendant 10sec'},
+  {perf:5, label:'Main à plat au sol, tête contre les genoux, pendant 10sec'}
+];
+function renderSouplesse(classe){
+  const cl = STATE.classes[classe];
+  const container = qs('#testContent-'+slug(classe));
+  const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
+  const rows = students.map((s,i)=>{
+    const r = s.results.souplesse;
+    const niveau = r && !r.absent && r.perf!=null ? niveauFromNote(r.note) : null;
+    const options = SOUPLESSE_LEVELS.map(l=>`<option value="${l.perf}" ${r&&r.perf===l.perf?'selected':''}>${escapeHtml(l.label)}</option>`).join('');
+    return `
+      <tr class="${r&&r.absent?'row-absent':''}">
+        <td>${escapeHtml(s.nomPrenom)} <small>(${s.sexe})</small></td>
+        <td>
+          <select ${r&&r.absent?'disabled':''} onchange="validerSouplesse('${escapeHtml(classe)}',${i},this.value)">
+            <option value="">-- Choisir --</option>
+            ${options}
+          </select>
+        </td>
+        <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}${r&&r.note!=null?notePill(r.note):''}</td>
+        <td><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentSimple('${escapeHtml(classe)}','souplesse',${i},this.checked)"> Absent</label></td>
+      </tr>`;
+  }).join('');
+  container.innerHTML = `
+    <div class="card">
+      <p class="help-text">Choisissez le niveau atteint pour chaque élève dans la liste déroulante.</p>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr style="background:var(--col-8);"><th>Élève</th><th>Niveau atteint</th><th>Niveau</th><th>Absent</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="4">Aucun élève</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+async function validerSouplesse(classe, idx, value){
+  const perf = parseFloat(value);
+  if(isNaN(perf)) return;
+  const cl = STATE.classes[classe];
+  const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
+  const student = students[idx];
+  student.results.souplesse = {absent:false, perf, note:null};
+  saveState();
+  renderClassTab(classe);
+  const note = await computeNote(classe, 'souplesse', perf, student.sexe);
+  if(student.results.souplesse && student.results.souplesse.perf===perf){
+    student.results.souplesse.note = note;
+    saveState();
+    renderClassTab(classe);
+    syncToSheet(classe);
+  }
 }
 
 /* ===================== VITESSE ===================== */
@@ -805,7 +1078,7 @@ function renderVitesse(classe){
             ${r&&r.absent?'disabled':''}
             onchange="setVitesseManuel('${escapeHtml(classe)}',${i},this.value)"> s
         </td>
-        <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}</td>
+        <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}${r&&r.note!=null?notePill(r.note):''}</td>
         <td onclick="event.stopPropagation()"><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentSimple('${escapeHtml(classe)}','vitesse',${i},this.checked)"> Absent</label></td>
       </tr>`;
   }).join('');
@@ -846,14 +1119,15 @@ function updateVitesseChronoDisplay(classe){
   const elapsed = (performance.now()-vitesseChrono.startTs)/1000;
   el.textContent = elapsed.toFixed(2)+' s';
 }
-function stopVitesseChrono(classe){
+async function stopVitesseChrono(classe){
   const elapsed = (performance.now()-vitesseChrono.startTs)/1000;
   clearInterval(vitesseChrono.interval);
   vitesseChrono.interval = null;
   const cl = STATE.classes[classe];
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const student = students[vitesseChrono.studentIdx];
-  student.results.vitesse = {absent:false, temps: Math.round(elapsed*100)/100};
+  const temps = Math.round(elapsed*100)/100;
+  student.results.vitesse = {absent:false, temps, note:null};
   saveState();
   // sélection automatique de l'élève suivant sans résultat
   let nextIdx = null;
@@ -863,35 +1137,423 @@ function stopVitesseChrono(classe){
   vitesseChrono.studentIdx = nextIdx;
   if(nextIdx===null) vitesseChrono.classe = null;
   renderClassTab(classe);
+  const note = await computeNote(classe, 'vitesse', temps, student.sexe);
+  if(student.results.vitesse && student.results.vitesse.temps===temps){
+    student.results.vitesse.note = note;
+    saveState();
+    renderClassTab(classe);
+    syncToSheet(classe);
+  }
 }
-function setVitesseManuel(classe, idx, value){
+async function setVitesseManuel(classe, idx, value){
   const val = parseFloat(value);
+  if(isNaN(val)) return;
   const cl = STATE.classes[classe];
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const student = students[idx];
-  if(!isNaN(val)) student.results.vitesse = {absent:false, temps:val};
+  student.results.vitesse = {absent:false, temps:val, note:null};
+  saveState();
+  renderClassTab(classe);
+  const note = await computeNote(classe, 'vitesse', val, student.sexe);
+  if(student.results.vitesse && student.results.vitesse.temps===val){
+    student.results.vitesse.note = note;
+    saveState();
+    renderClassTab(classe);
+    syncToSheet(classe);
+  }
+}
+
+/* ===================== DEMI-COOPER (endurance 5-4-3ème) ===================== */
+function renderDemiCooper(classe){
+  const cl = STATE.classes[classe];
+  if(!cl.trackSize){ cl.trackSize = 150; saveState(); }
+  const container = qs('#testContent-'+slug(classe));
+  const running = cl.runState.running;
+  const locked = cl.runState.locked;
+  container.innerHTML = `
+    <div class="card">
+      <div class="row-flex">
+        <label>Taille de piste :
+          <select ${running||locked?'disabled':''} onchange="STATE.classes['${escapeHtml(classe)}'].trackSize=parseInt(this.value); saveState(); renderClassTab('${escapeHtml(classe)}')">
+            <option value="100" ${cl.trackSize===100?'selected':''}>100 m</option>
+            <option value="150" ${cl.trackSize===150?'selected':''}>150 m</option>
+          </select>
+        </label>
+        <label>Groupe qui commence :
+          <select ${running||locked?'disabled':''} onchange="STATE.classes['${escapeHtml(classe)}'].activeGroup=this.value; saveState(); renderClassTab('${escapeHtml(classe)}')">
+            <option value="A" ${cl.activeGroup==='A'?'selected':''}>Groupe A</option>
+            <option value="B" ${cl.activeGroup==='B'?'selected':''}>Groupe B</option>
+          </select>
+        </label>
+        ${!running && !locked
+          ? `<button class="btn-primary" onclick="departDemiCooper('${escapeHtml(classe)}')">▶️ Départ commun (Groupe ${cl.activeGroup})</button>`
+          : running ? `<button class="btn-danger" onclick="stopDemiCooper('${escapeHtml(classe)}')">⏹️ Arrêter</button>` : ''}
+        ${running ? `<span class="ll-live" id="dc-live-${slug(classe)}">06:00</span>` : ''}
+      </div>
+      <p class="help-text">${!running && !locked ? "Cliquez sur « Départ commun » pour lancer le décompte de 6 minutes." : running ? "Cliquez sur un élève du groupe actif à chaque tour effectué." : "Le temps est écoulé : saisissez la distance supplémentaire (portion de tour non terminée) pour chaque élève, puis validez."}</p>
+    </div>
+    <div class="ll-columns">
+      ${renderDemiCooperGroupColumn(classe,'A')}
+      ${renderDemiCooperGroupColumn(classe,'B')}
+    </div>
+  `;
+  if(running) updateDemiCooperLive(classe);
+}
+function renderDemiCooperGroupColumn(classe, group){
+  const cl = STATE.classes[classe];
+  const students = cl.students.filter(s=>s.group===group).sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
+  const isActiveGroup = cl.activeGroup===group;
+  const running = cl.runState.running && isActiveGroup;
+  const locked = cl.runState.locked && isActiveGroup;
+  const rows = students.map(s=>{
+    const r = s.results.demiCooper;
+    const done = r && r.done;
+    const absent = r && r.absent;
+    const tours = r ? (r.tours||0) : 0;
+    const clickableRow = running && !done && !absent;
+    let actionCell;
+    if(done){
+      const niv = niveauFromNote(r.note);
+      actionCell = `${r.valeur} m ${niv?niveauPill(niv):'—'}${r.note!=null?notePill(r.note):''}`;
+    } else if(absent){
+      actionCell = niveauPill(null);
+    } else if(locked){
+      actionCell = `${tours} tour(s) + <input type="number" step="0.1" style="width:70px;" placeholder="m suppl." onchange="validerDemiCooperFinal('${escapeHtml(classe)}','${s.id}',this.value)"> m`;
+    } else {
+      actionCell = `${tours} tour(s)`;
+    }
+    return `
+      <tr class="${absent?'row-absent':(done?'row-done':'')} ${clickableRow?'row-clickable':''}" ${clickableRow?`onclick="incrementTour('${escapeHtml(classe)}','${s.id}')"`:''}>
+        <td>${escapeHtml(s.nomPrenom)} <small>(${s.sexe})</small></td>
+        <td onclick="event.stopPropagation()">${actionCell}</td>
+        <td onclick="event.stopPropagation()">${!done ? `<label><input type="checkbox" class="absent-checkbox" ${absent?'checked':''} onchange="toggleAbsentDemiCooper('${escapeHtml(classe)}','${s.id}',this.checked)"> Absent</label>` : ''}</td>
+      </tr>`;
+  }).join('');
+  return `
+    <div class="card">
+      <h3>Groupe ${group} (${students.length})</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr style="background:${group==='A'?'var(--col-1)':'var(--col-2)'};"><th>Élève</th><th>Tours / Résultat</th><th>Absent</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="3">Aucun élève</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+function departDemiCooper(classe){
+  for(const c of STATE.order){
+    if(c!==classe && STATE.classes[c].runState.running){
+      alert('Un test est déjà en cours pour la classe '+c+'. Arrêtez-le avant d\'en démarrer un nouveau.');
+      return;
+    }
+  }
+  const cl = STATE.classes[classe];
+  cl.runState = {running:true, locked:false, startTs: Date.now()};
+  if(liveTimer) clearInterval(liveTimer);
+  liveTimer = setInterval(()=>updateDemiCooperLive(classe), 500);
   saveState();
   renderClassTab(classe);
 }
+function updateDemiCooperLive(classe){
+  const cl = STATE.classes[classe];
+  if(!cl.runState.running) return;
+  const elapsed = (Date.now()-cl.runState.startTs)/1000;
+  const remaining = Math.max(0, 360-elapsed);
+  const el = document.getElementById('dc-live-'+slug(classe));
+  if(el) el.textContent = formatMMSS(remaining);
+  if(remaining<=0) lockDemiCooper(classe);
+}
+function stopDemiCooper(classe){ lockDemiCooper(classe); }
+function lockDemiCooper(classe){
+  const cl = STATE.classes[classe];
+  cl.runState = {running:false, locked:true};
+  if(liveTimer){ clearInterval(liveTimer); liveTimer=null; }
+  saveState();
+  renderClassTab(classe);
+}
+function incrementTour(classe, studentId){
+  const cl = STATE.classes[classe];
+  if(!cl.runState.running) return;
+  const s = cl.students.find(s=>s.id===studentId);
+  if(!s || s.group!==cl.activeGroup) return;
+  if(!s.results.demiCooper) s.results.demiCooper = {tours:0, absent:false, done:false};
+  if(s.results.demiCooper.done || s.results.demiCooper.absent) return;
+  s.results.demiCooper.tours = (s.results.demiCooper.tours||0)+1;
+  saveState();
+  renderClassTab(classe);
+}
+function toggleAbsentDemiCooper(classe, studentId, checked){
+  const s = STATE.classes[classe].students.find(s=>s.id===studentId);
+  if(checked) s.results.demiCooper = {absent:true, done:false, tours:0};
+  else s.results.demiCooper = null;
+  saveState();
+  renderClassTab(classe);
+  syncToSheet(classe);
+}
+async function validerDemiCooperFinal(classe, studentId, suppValue){
+  const cl = STATE.classes[classe];
+  const s = cl.students.find(s=>s.id===studentId);
+  if(!s || !s.results.demiCooper) return;
+  const supp = parseFloat(suppValue)||0;
+  const tours = s.results.demiCooper.tours||0;
+  const valeur = tours*cl.trackSize + supp;
+  s.results.demiCooper = {absent:false, done:true, tours, distanceSupp:supp, valeur, note:null};
+  saveState();
+  renderClassTab(classe);
+  const note = await computeNote(classe, 'endurance', valeur, s.sexe);
+  if(s.results.demiCooper && s.results.demiCooper.valeur===valeur){
+    s.results.demiCooper.note = note;
+    saveState();
+    renderClassTab(classe);
+    syncToSheet(classe);
+  }
+}
+
+/* ===================== VITESSE 40m (3 chronos simultanés, 5-4-3ème) ===================== */
+let vitesse40Chrono = { classe:null, running:false, startTs:null, lanes:[null,null,null], stopped:[false,false,false] };
+function ensureVitesse40Lanes(classe){
+  const cl = STATE.classes[classe];
+  const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
+  if(vitesse40Chrono.classe!==classe){
+    vitesse40Chrono = { classe, running:false, startTs:null, lanes:[null,null,null], stopped:[false,false,false] };
+  }
+  const inLanes = new Set(vitesse40Chrono.lanes.filter(x=>x!=null));
+  for(let lane=0; lane<3; lane++){
+    if(vitesse40Chrono.lanes[lane]==null){
+      const nextIdx = students.findIndex((s,i)=> !inLanes.has(i) && !s.results.vitesse40);
+      if(nextIdx!==-1){ vitesse40Chrono.lanes[lane]=nextIdx; inLanes.add(nextIdx); vitesse40Chrono.stopped[lane]=false; }
+    }
+  }
+  return students;
+}
+function renderVitesse40(classe){
+  const students = ensureVitesse40Lanes(classe);
+  const container = qs('#testContent-'+slug(classe));
+  const running = vitesse40Chrono.running;
+  const laneHtml = [0,1,2].map(lane=>{
+    const idx = vitesse40Chrono.lanes[lane];
+    const s = idx!=null ? students[idx] : null;
+    const stopped = vitesse40Chrono.stopped[lane];
+    return `
+      <div class="card">
+        <h3>Couloir ${lane+1}</h3>
+        ${s ? `<p><strong>${escapeHtml(s.nomPrenom)}</strong> (${s.sexe})</p>` : '<p class="help-text">Aucun élève restant</p>'}
+        <div class="chrono-display" id="v40-display-${lane}-${slug(classe)}">0.00 s</div>
+        ${s && running && !stopped ? `<button class="btn-danger" onclick="stopVitesse40Lane('${escapeHtml(classe)}',${lane})">⏹️ Arrêter</button>` : ''}
+      </div>`;
+  }).join('');
+  const anyLaneFilled = vitesse40Chrono.lanes.some(x=>x!=null);
+  container.innerHTML = `
+    <div class="card">
+      <p class="help-text">3 élèves courent en même temps. Cliquez « Départ commun » pour lancer les 3 chronos, puis « Arrêter » individuellement à l'arrivée de chacun.</p>
+      ${!running ? `<button class="btn-primary" ${!anyLaneFilled?'disabled':''} onclick="departVitesse40('${escapeHtml(classe)}')">▶️ Départ commun</button>` : ''}
+    </div>
+    <div class="ll-columns" style="grid-template-columns:repeat(3,1fr);">
+      ${laneHtml}
+    </div>
+    <div id="v40-roster-${slug(classe)}"></div>
+  `;
+  renderVitesse40Roster(classe, students);
+  if(running) updateVitesse40Display(classe);
+}
+function renderVitesse40Roster(classe, students){
+  const container = document.getElementById('v40-roster-'+slug(classe));
+  if(!container) return;
+  const rows = students.map((s,i)=>{
+    const r = s.results.vitesse40;
+    const niveau = r && !r.absent && r.temps!=null ? niveauFromNote(r.note) : null;
+    return `
+      <tr class="${r&&r.absent?'row-absent':''}">
+        <td>${escapeHtml(s.nomPrenom)} <small>(${s.sexe})</small></td>
+        <td>
+          <input type="number" step="0.01" value="${r&&r.temps!=null?r.temps:''}" placeholder="sec" style="width:90px;"
+            ${r&&r.absent?'disabled':''}
+            onchange="setVitesse40Manuel('${escapeHtml(classe)}',${i},this.value)"> s
+        </td>
+        <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}${r&&r.note!=null?notePill(r.note):''}</td>
+        <td><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentVitesse40('${escapeHtml(classe)}',${i},this.checked)"> Absent</label></td>
+      </tr>`;
+  }).join('');
+  container.innerHTML = `
+    <div class="card">
+      <h3>Résultats</h3>
+      <div class="table-wrapper">
+        <table>
+          <thead><tr style="background:var(--col-5);"><th>Élève</th><th>Temps</th><th>Niveau</th><th>Absent</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="4">Aucun élève</td></tr>'}</tbody>
+        </table>
+      </div>
+    </div>`;
+}
+function departVitesse40(classe){
+  for(const c of STATE.order){
+    if(c!==classe && STATE.classes[c].runState && STATE.classes[c].runState.running){
+      alert('Un test est déjà en cours pour la classe '+c+'. Arrêtez-le avant d\'en démarrer un nouveau.');
+      return;
+    }
+  }
+  vitesse40Chrono.running = true;
+  vitesse40Chrono.startTs = performance.now();
+  vitesse40Chrono.stopped = vitesse40Chrono.lanes.map(x=>x==null);
+  if(liveTimer) clearInterval(liveTimer);
+  liveTimer = setInterval(()=>updateVitesse40Display(classe), 30);
+  renderClassTab(classe);
+}
+function updateVitesse40Display(classe){
+  if(!vitesse40Chrono.running) return;
+  const elapsed = (performance.now()-vitesse40Chrono.startTs)/1000;
+  [0,1,2].forEach(lane=>{
+    if(vitesse40Chrono.lanes[lane]!=null && !vitesse40Chrono.stopped[lane]){
+      const el = document.getElementById(`v40-display-${lane}-${slug(classe)}`);
+      if(el) el.textContent = elapsed.toFixed(2)+' s';
+    }
+  });
+}
+async function stopVitesse40Lane(classe, lane){
+  if(!vitesse40Chrono.running || vitesse40Chrono.stopped[lane]) return;
+  const elapsed = (performance.now()-vitesse40Chrono.startTs)/1000;
+  const temps = Math.round(elapsed*100)/100;
+  vitesse40Chrono.stopped[lane] = true;
+  const cl = STATE.classes[classe];
+  const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
+  const idx = vitesse40Chrono.lanes[lane];
+  const student = students[idx];
+  student.results.vitesse40 = {absent:false, temps, note:null};
+  vitesse40Chrono.lanes[lane] = null;
+  saveState();
+  if(vitesse40Chrono.stopped.every(v=>v)){
+    vitesse40Chrono.running = false;
+    if(liveTimer){ clearInterval(liveTimer); liveTimer=null; }
+  }
+  renderClassTab(classe);
+  const note = await computeNote(classe, 'vitesse', temps, student.sexe);
+  if(student.results.vitesse40 && student.results.vitesse40.temps===temps){
+    student.results.vitesse40.note = note;
+    saveState();
+    renderClassTab(classe);
+    syncToSheet(classe);
+  }
+}
+async function setVitesse40Manuel(classe, idx, value){
+  const val = parseFloat(value);
+  if(isNaN(val)) return;
+  const cl = STATE.classes[classe];
+  const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
+  const student = students[idx];
+  student.results.vitesse40 = {absent:false, temps:val, note:null};
+  saveState();
+  renderClassTab(classe);
+  const note = await computeNote(classe, 'vitesse', val, student.sexe);
+  if(student.results.vitesse40 && student.results.vitesse40.temps===val){
+    student.results.vitesse40.note = note;
+    saveState();
+    renderClassTab(classe);
+    syncToSheet(classe);
+  }
+}
+function toggleAbsentVitesse40(classe, idx, checked){
+  const cl = STATE.classes[classe];
+  const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
+  const student = students[idx];
+  if(checked) student.results.vitesse40 = {absent:true};
+  else student.results.vitesse40 = null;
+  if(vitesse40Chrono.classe===classe && !vitesse40Chrono.running){
+    vitesse40Chrono.lanes = vitesse40Chrono.lanes.map(l=> l===idx?null:l);
+  }
+  saveState();
+  renderClassTab(classe);
+  syncToSheet(classe);
+}
+
+/* ===================== DEFINITIONS DES EPREUVES (partagé Résultats/Statistiques) ===================== */
+const TEST_DEFS = {
+  lucLeger: {
+    label:'Endurance (Luc Léger)', resultsKey:'lucLeger', higherIsBetter:true,
+    isDone:r=>!!(r&&r.done), isAbsent:r=>!!(r&&r.absent),
+    display:r=>`Palier ${r.palier} · ${r.vitesse.toFixed(1)} km/h · ${formatMMSS(r.temps)}`,
+    value:r=>r.vitesse*100000+r.temps,
+    niveau:r=>niveauLucLeger(r.vitesse)
+  },
+  longueur: {
+    label:'Longueur', resultsKey:'longueur', higherIsBetter:true,
+    isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>!!(r&&r.absent),
+    display:r=>`${r.valeur} cm`, value:r=>r.valeur,
+    niveau:r=>niveauLongueur(r.valeur)
+  },
+  vitesse: {
+    label:'Vitesse 30m', resultsKey:'vitesse', higherIsBetter:false,
+    isDone:r=>!!(r&&r.temps!=null), isAbsent:r=>!!(r&&r.absent),
+    display:r=>`${r.temps} s`, value:r=>r.temps,
+    niveau:r=>niveauVitesse(r.temps)
+  },
+  detenteVerticale: {
+    label:'Détente verticale', resultsKey:'detenteVerticale', higherIsBetter:true,
+    isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>!!(r&&r.absent),
+    display:r=>`${r.valeur} cm`, value:r=>r.valeur,
+    niveau:r=>niveauFromNote(r.note)
+  },
+  pompes: {
+    label:'Pompes', resultsKey:'pompes', higherIsBetter:true,
+    isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>!!(r&&r.absent),
+    display:r=>`${r.valeur} reps`, value:r=>r.valeur,
+    niveau:r=>niveauFromNote(r.note)
+  },
+  souplesse: {
+    label:'Souplesse', resultsKey:'souplesse', higherIsBetter:true,
+    isDone:r=>!!(r&&r.perf!=null), isAbsent:r=>!!(r&&r.absent),
+    display:r=>{ const l=SOUPLESSE_LEVELS.find(x=>x.perf===r.perf); return l?l.label:String(r.perf); },
+    value:r=>r.perf,
+    niveau:r=>niveauFromNote(r.note)
+  },
+  demiCooper: {
+    label:'Endurance (Demi-Cooper)', resultsKey:'demiCooper', higherIsBetter:true,
+    isDone:r=>!!(r&&r.done), isAbsent:r=>!!(r&&r.absent),
+    display:r=>`${r.valeur} m (${r.tours} tour(s) + ${r.distanceSupp||0}m)`,
+    value:r=>r.valeur,
+    niveau:r=>niveauFromNote(r.note)
+  },
+  vitesse40: {
+    label:'Vitesse 40m', resultsKey:'vitesse40', higherIsBetter:false,
+    isDone:r=>!!(r&&r.temps!=null), isAbsent:r=>!!(r&&r.absent),
+    display:r=>`${r.temps} s`, value:r=>r.temps,
+    niveau:r=>niveauFromNote(r.note)
+  },
+  detenteHorizontale: {
+    label:'Détente horizontale', resultsKey:'detenteHorizontale', higherIsBetter:true,
+    isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>!!(r&&r.absent),
+    display:r=>`${r.valeur} m`, value:r=>r.valeur,
+    niveau:r=>niveauFromNote(r.note)
+  }
+};
+const NIVEAU_TESTS = {
+  '6eme': ['lucLeger','longueur','vitesse','detenteVerticale','souplesse','pompes'],
+  '5eme': ['demiCooper','vitesse40','detenteHorizontale','detenteVerticale','souplesse','pompes'],
+  '4eme3eme': ['demiCooper','vitesse40','detenteHorizontale','detenteVerticale','souplesse','pompes']
+};
 
 /* ===================== RESULTATS ===================== */
-const RESULT_COLUMNS = [
-  {key:'nomPrenom', label:'Nom Prénom', colorVar:'--col-1'},
-  {key:'classe', label:'Classe', colorVar:'--col-2'},
-  {key:'sexe', label:'Sexe', colorVar:'--col-3'},
-  {key:'ll_resultat', label:'Endurance - Résultat', colorVar:'--col-4'},
-  {key:'ll_niveau', label:'Endurance - Niveau', colorVar:'--col-4'},
-  {key:'ll_rangGen', label:'Endurance - Rang général', colorVar:'--col-4'},
-  {key:'ll_rangSexe', label:'Endurance - Rang sexe', colorVar:'--col-4'},
-  {key:'lo_distance', label:'Longueur - Distance (cm)', colorVar:'--col-5'},
-  {key:'lo_niveau', label:'Longueur - Niveau', colorVar:'--col-5'},
-  {key:'lo_rangGen', label:'Longueur - Rang général', colorVar:'--col-5'},
-  {key:'lo_rangSexe', label:'Longueur - Rang sexe', colorVar:'--col-5'},
-  {key:'vi_temps', label:'Vitesse - Temps (s)', colorVar:'--col-6'},
-  {key:'vi_niveau', label:'Vitesse - Niveau', colorVar:'--col-6'},
-  {key:'vi_rangGen', label:'Vitesse - Rang général', colorVar:'--col-6'},
-  {key:'vi_rangSexe', label:'Vitesse - Rang sexe', colorVar:'--col-6'},
-];
+function buildResultColumns(niveau){
+  const base = [
+    {key:'nomPrenom', label:'Nom Prénom', colorVar:'--col-1'},
+    {key:'classe', label:'Classe', colorVar:'--col-2'},
+    {key:'sexe', label:'Sexe', colorVar:'--col-3'}
+  ];
+  const palette = ['--col-4','--col-5','--col-6','--col-7','--col-8','--col-1'];
+  const testCols = [];
+  NIVEAU_TESTS[niveau].forEach((testKey,i)=>{
+    const def = TEST_DEFS[testKey];
+    const colorVar = palette[i % palette.length];
+    testCols.push(
+      {key:testKey+'_resultat', label:def.label+' - Résultat', colorVar},
+      {key:testKey+'_niveau', label:def.label+' - Niveau', colorVar},
+      {key:testKey+'_note', label:def.label+' - Note', colorVar},
+      {key:testKey+'_rangGen', label:def.label+' - Rang général', colorVar},
+      {key:testKey+'_rangSexe', label:def.label+' - Rang sexe', colorVar}
+    );
+  });
+  return base.concat(testCols);
+}
 let resultatsSort = {key:'nomPrenom', dir:'asc'};
 
 function computeRankMap(students, extractValue, higherIsBetter, filterFn){
@@ -904,44 +1566,34 @@ function computeRankMap(students, extractValue, higherIsBetter, filterFn){
 function buildResultRows(classe){
   const cl = STATE.classes[classe];
   const students = cl.students;
-  const llFilter = s=>s.results.lucLeger && s.results.lucLeger.done;
-  const loFilter = s=>s.results.longueur && s.results.longueur.distance!=null;
-  const viFilter = s=>s.results.vitesse && s.results.vitesse.temps!=null;
-
-  const llVal = s=>s.results.lucLeger.vitesse*100000 + s.results.lucLeger.temps;
-  const loVal = s=>s.results.longueur.distance;
-  const viVal = s=>s.results.vitesse.temps;
-
-  const llRangGen = computeRankMap(students, llVal, true, llFilter);
-  const loRangGen = computeRankMap(students, loVal, true, loFilter);
-  const viRangGen = computeRankMap(students, viVal, false, viFilter);
-  const llRangF = computeRankMap(students, llVal, true, s=>llFilter(s)&&s.sexe==='F');
-  const llRangM = computeRankMap(students, llVal, true, s=>llFilter(s)&&s.sexe==='M');
-  const loRangF = computeRankMap(students, loVal, true, s=>loFilter(s)&&s.sexe==='F');
-  const loRangM = computeRankMap(students, loVal, true, s=>loFilter(s)&&s.sexe==='M');
-  const viRangF = computeRankMap(students, viVal, false, s=>viFilter(s)&&s.sexe==='F');
-  const viRangM = computeRankMap(students, viVal, false, s=>viFilter(s)&&s.sexe==='M');
-
-  return students.map(s=>{
-    const ll = s.results.lucLeger;
-    const lo = s.results.longueur;
-    const vi = s.results.vitesse;
-    return {
-      id:s.id,
-      nomPrenom:s.nomPrenom, classe:s.classe, sexe:s.sexe,
-      ll_resultat: ll&&ll.done ? `Palier ${ll.palier} · ${ll.vitesse.toFixed(1)} km/h · ${formatMMSS(ll.temps)}` : (ll&&ll.absent?'Absent':'—'),
-      ll_niveau: ll&&ll.done ? niveauLucLeger(ll.vitesse) : (ll&&ll.absent?null:'—'),
-      ll_rangGen: llRangGen[s.id]!=null? llRangGen[s.id] : '—',
-      ll_rangSexe: (s.sexe==='F'?llRangF[s.id]:llRangM[s.id]) ?? '—',
-      lo_distance: lo&&lo.distance!=null ? lo.distance : (lo&&lo.absent?'Absent':'—'),
-      lo_niveau: lo&&lo.distance!=null ? niveauLongueur(lo.distance) : (lo&&lo.absent?null:'—'),
-      lo_rangGen: loRangGen[s.id]!=null? loRangGen[s.id] : '—',
-      lo_rangSexe: (s.sexe==='F'?loRangF[s.id]:loRangM[s.id]) ?? '—',
-      vi_temps: vi&&vi.temps!=null ? vi.temps : (vi&&vi.absent?'Absent':'—'),
-      vi_niveau: vi&&vi.temps!=null ? niveauVitesse(vi.temps) : (vi&&vi.absent?null:'—'),
-      vi_rangGen: viRangGen[s.id]!=null? viRangGen[s.id] : '—',
-      vi_rangSexe: (s.sexe==='F'?viRangF[s.id]:viRangM[s.id]) ?? '—',
+  const niveau = getNiveau(classe);
+  const testKeys = NIVEAU_TESTS[niveau];
+  const rankMaps = {};
+  testKeys.forEach(testKey=>{
+    const def = TEST_DEFS[testKey];
+    const filter = s=>def.isDone(s.results[def.resultsKey]);
+    const val = s=>def.value(s.results[def.resultsKey]);
+    rankMaps[testKey] = {
+      gen: computeRankMap(students, val, def.higherIsBetter, filter),
+      F: computeRankMap(students, val, def.higherIsBetter, s=>filter(s)&&s.sexe==='F'),
+      M: computeRankMap(students, val, def.higherIsBetter, s=>filter(s)&&s.sexe==='M')
     };
+  });
+  return students.map(s=>{
+    const row = { id:s.id, nomPrenom:s.nomPrenom, classe:s.classe, sexe:s.sexe };
+    testKeys.forEach(testKey=>{
+      const def = TEST_DEFS[testKey];
+      const r = s.results[def.resultsKey];
+      const done = def.isDone(r);
+      const absent = def.isAbsent(r);
+      row[testKey+'_resultat'] = done ? def.display(r) : (absent ? 'Absent' : '—');
+      row[testKey+'_niveau'] = done ? def.niveau(r) : (absent ? null : '—');
+      row[testKey+'_note'] = done && r.note!=null ? r.note : '—';
+      const rm = rankMaps[testKey];
+      row[testKey+'_rangGen'] = rm.gen[s.id]!=null ? rm.gen[s.id] : '—';
+      row[testKey+'_rangSexe'] = (s.sexe==='F'?rm.F[s.id]:rm.M[s.id]) ?? '—';
+    });
+    return row;
   });
 }
 function compareForSort(a,b,key,dir){
@@ -966,20 +1618,22 @@ function renderResultats(){
   const classe = sel.value;
   const table = qs('#resultatsTable');
   if(!classe){ table.innerHTML = '<tr><td>Importez d\'abord une classe.</td></tr>'; return; }
+  const columns = buildResultColumns(getNiveau(classe));
   let rows = buildResultRows(classe);
   rows.sort((a,b)=>compareForSort(a,b,resultatsSort.key,resultatsSort.dir));
 
-  const thead = '<thead><tr>'+RESULT_COLUMNS.map((c,i)=>{
+  const thead = '<thead><tr>'+columns.map((c,i)=>{
     const arrow = resultatsSort.key===c.key ? (resultatsSort.dir==='asc'?'▲':'▼') : '';
     const sticky = i===0 ? ' sticky-col' : '';
     return `<th class="${sticky}" style="background:var(${c.colorVar});" onclick="onSortResultats('${c.key}')">${c.label} <span class="sort-arrow">${arrow}</span></th>`;
   }).join('')+'</tr></thead>';
 
   const tbody = '<tbody>'+rows.map(r=>{
-    return '<tr>'+RESULT_COLUMNS.map((c,i)=>{
+    return '<tr>'+columns.map((c,i)=>{
       let val = r[c.key];
       let display;
       if(c.key.endsWith('niveau')) display = val==='—' ? '—' : niveauPill(val);
+      else if(c.key.endsWith('note')) display = (typeof val==='number') ? notePill(val) : val;
       else if(c.key.endsWith('rangGen')) display = (typeof val==='number') ? medalFor(val)+val : val;
       else display = escapeHtml(String(val));
       const sticky = i===0 ? ' sticky-col' : '';
@@ -996,15 +1650,18 @@ function onSortResultats(key){
 }
 
 /* ===================== STATISTIQUES ===================== */
-function computeStatsForTest(students, filterFn, extractValue, niveauFn){
+function computeStatsForTest(students, def){
   function statsFor(sexe){
-    const list = students.filter(s=>s.sexe===sexe && filterFn(s));
-    const values = list.map(extractValue);
+    const list = students.filter(s=>s.sexe===sexe && def.isDone(s.results[def.resultsKey]));
+    const values = list.map(s=>def.value(s.results[def.resultsKey]));
     const moyenne = values.length ? values.reduce((a,b)=>a+b,0)/values.length : null;
-    const niveaux = {A:0,F:0,S:0};
-    values.forEach(v=>{
-      const n = niveauFn(v);
-      if(n==='A besoins') niveaux.A++; else if(n==='Fragile') niveaux.F++; else niveaux.S++;
+    const niveaux = {A:0,F:0,S:0,T:0};
+    list.forEach(s=>{
+      const n = def.niveau(s.results[def.resultsKey]);
+      if(n==='A besoins') niveaux.A++;
+      else if(n==='Fragile') niveaux.F++;
+      else if(n==='Satisfaisant') niveaux.S++;
+      else if(n==='Très bon niveau') niveaux.T++;
     });
     return {nb:list.length, moyenne, niveaux};
   }
@@ -1017,28 +1674,21 @@ function renderStatistiques(){
   const content = qs('#statsContent');
   if(!classe){ content.innerHTML='<p>Importez d\'abord une classe.</p>'; return; }
   const students = STATE.classes[classe].students;
+  const testKeys = NIVEAU_TESTS[getNiveau(classe)];
 
-  const llStats = computeStatsForTest(students,
-    s=>s.results.lucLeger && s.results.lucLeger.done,
-    s=>s.results.lucLeger.vitesse, niveauLucLeger);
-  const loStats = computeStatsForTest(students,
-    s=>s.results.longueur && s.results.longueur.distance!=null,
-    s=>s.results.longueur.distance, niveauLongueur);
-  const viStats = computeStatsForTest(students,
-    s=>s.results.vitesse && s.results.vitesse.temps!=null,
-    s=>s.results.vitesse.temps, niveauVitesse);
-
-  function statRow(label, stats, unite, decimals){
-    const fmt = v=>v==null?'—':v.toFixed(decimals)+' '+unite;
+  function statRow(testKey){
+    const def = TEST_DEFS[testKey];
+    const stats = computeStatsForTest(students, def);
+    const fmt = v=>v==null?'—':(Math.round(v*100)/100);
     return `
       <tr>
-        <td>${label}</td>
+        <td>${def.label}</td>
         <td class="garcon-cell">${stats.garcons.nb}</td>
         <td class="garcon-cell">${fmt(stats.garcons.moyenne)}</td>
-        <td class="garcon-cell">${stats.garcons.niveaux.A} / ${stats.garcons.niveaux.F} / ${stats.garcons.niveaux.S}</td>
+        <td class="garcon-cell">${stats.garcons.niveaux.A} / ${stats.garcons.niveaux.F} / ${stats.garcons.niveaux.S} / ${stats.garcons.niveaux.T}</td>
         <td class="fille-cell">${stats.filles.nb}</td>
         <td class="fille-cell">${fmt(stats.filles.moyenne)}</td>
-        <td class="fille-cell">${stats.filles.niveaux.A} / ${stats.filles.niveaux.F} / ${stats.filles.niveaux.S}</td>
+        <td class="fille-cell">${stats.filles.niveaux.A} / ${stats.filles.niveaux.F} / ${stats.filles.niveaux.S} / ${stats.filles.niveaux.T}</td>
       </tr>`;
   }
 
@@ -1052,14 +1702,12 @@ function renderStatistiques(){
             <th class="fille-head" colspan="3">Filles</th>
           </tr>
           <tr>
-            <th class="garcon-head">Testés</th><th class="garcon-head">Moyenne</th><th class="garcon-head">A besoins / Fragile / Satisfaisant</th>
-            <th class="fille-head">Testées</th><th class="fille-head">Moyenne</th><th class="fille-head">A besoins / Fragile / Satisfaisant</th>
+            <th class="garcon-head">Testés</th><th class="garcon-head">Moyenne</th><th class="garcon-head">A besoins / Fragile / Satisfaisant / Très bon niveau</th>
+            <th class="fille-head">Testées</th><th class="fille-head">Moyenne</th><th class="fille-head">A besoins / Fragile / Satisfaisant / Très bon niveau</th>
           </tr>
         </thead>
         <tbody>
-          ${statRow('Endurance (km/h)', llStats, 'km/h', 1)}
-          ${statRow('Longueur (cm)', loStats, 'cm', 0)}
-          ${statRow('Vitesse (s)', viStats, 's', 2)}
+          ${testKeys.map(statRow).join('')}
         </tbody>
       </table>
     </div>`;
@@ -1085,10 +1733,11 @@ function buildExcelXML(sheets){
   return xml;
 }
 function buildExportRowsForClasse(classe){
+  const columns = buildResultColumns(getNiveau(classe));
   const rows = buildResultRows(classe);
   rows.sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
-  const header = RESULT_COLUMNS.map(c=>c.label);
-  const dataRows = rows.map(r=>RESULT_COLUMNS.map(c=>r[c.key]));
+  const header = columns.map(c=>c.label);
+  const dataRows = rows.map(r=>columns.map(c=>r[c.key]));
   return [header, ...dataRows];
 }
 function exportExcel(){
