@@ -154,11 +154,20 @@ thead th.sticky-col{background:#334155;z-index:3;}
 .niveau-S{background:var(--niveau-satisfaisant);}
 .niveau-T{background:#2563eb;}
 .niveau-abs{background:#94a3b8;}
-.note-badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#1e293b;color:#fff;font-weight:700;font-size:.75rem;margin-left:4px;}
+.note-badge{display:inline-block;padding:1px 7px;border-radius:999px;background:#1e293b;color:#fff;font-weight:700;font-size:.7rem;margin-left:3px;}
 .sexe-icon{font-weight:900;font-size:1rem;}
 .sexe-icon.sexe-F{color:var(--fille);}
 .sexe-icon.sexe-M{color:var(--garcon);}
-.table-wrapper.scroll-y{max-height:46vh;overflow-y:auto;}
+.table-wrapper.scroll-y{max-height:60vh;overflow-y:auto;}
+.compact th,.compact td{padding:4px 6px;font-size:.78rem;}
+.reset-icon{background:none;border:none;cursor:pointer;font-size:.85rem;padding:0 4px;min-height:auto;color:var(--muted);}
+.reset-icon:hover{color:var(--primary-dark);}
+.dc-tile{
+  display:inline-block;padding:8px 14px;border-radius:10px;
+  background:var(--primary);color:#fff;font-weight:800;font-size:.95rem;
+  box-shadow:0 2px 4px rgba(37,99,235,.4);
+}
+.dc-tile:active{background:var(--primary-dark);}
 .medal{font-size:1.1rem;margin-right:4px;}
 .ll-columns{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 @media(max-width:820px){.ll-columns{grid-template-columns:1fr;}}
@@ -402,7 +411,21 @@ function resetResult(classe, studentId, testKey){
   syncToSheet(classe);
 }
 function resetBtn(classe, studentId, testKey){
-  return `<button class="btn-secondary" style="padding:3px 8px;min-height:auto;font-size:.75rem;" onclick="resetResult('${escapeHtml(classe)}','${studentId}','${testKey}')" title="Recommencer">↺</button>`;
+  return `<button class="reset-icon" onclick="event.stopPropagation();resetResult('${escapeHtml(classe)}','${studentId}','${testKey}')" title="Recommencer">↺</button>`;
+}
+function rankCell(ranks, studentId, sexe){
+  const rg = ranks.gen[studentId];
+  const rs = sexe==='F' ? ranks.F[studentId] : ranks.M[studentId];
+  if(rg==null) return '—';
+  return `${medalFor(rg)}${rg}${rs!=null?` <small>(sexe:${rs})</small>`:''}`;
+}
+function twoColumnBlocks(theadHtml, rowsArr, colspan){
+  if(rowsArr.length===0) return `<div class="table-wrapper scroll-y"><table>${theadHtml}<tbody><tr><td colspan="${colspan}">Aucun élève</td></tr></tbody></table></div>`;
+  const half = Math.ceil(rowsArr.length/2);
+  const col1 = rowsArr.slice(0,half).join('');
+  const col2 = rowsArr.slice(half).join('');
+  const block = rowsHtml => `<div class="table-wrapper scroll-y compact"><table>${theadHtml}<tbody>${rowsHtml}</tbody></table></div>`;
+  return `<div class="ll-columns">${block(col1)}${col2?block(col2):''}</div>`;
 }
 function niveauPill(niveau){
   if(!niveau) return '<span class="niveau-pill niveau-abs">Absent</span>';
@@ -836,11 +859,12 @@ function renderLLGroupColumn(classe, group, ranks){
     } else {
       resultCell = '—';
     }
-    const rg = ranks.gen[s.id];
-    const rs = s.sexe==='F' ? ranks.F[s.id] : ranks.M[s.id];
+    const nomCell = clickable
+      ? `<span class="dc-tile">🏃 ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</span>`
+      : `${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}`;
     return `
       <tr class="${rowClass} ${clickable?'row-clickable':''}" ${clickable?`onclick="recordLucLegerResult('${escapeHtml(classe)}','${s.id}')"`:''}>
-        <td>${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
+        <td>${nomCell}</td>
         <td onclick="event.stopPropagation()">
           <select onchange="moveGroup('${escapeHtml(classe)}','${s.id}',this.value)">
             <option value="A" ${s.group==='A'?'selected':''}>A</option>
@@ -848,8 +872,7 @@ function renderLLGroupColumn(classe, group, ranks){
           </select>
         </td>
         <td>${resultCell}</td>
-        <td>${rg!=null?medalFor(rg)+rg:'—'}</td>
-        <td>${rs!=null?rs:'—'}</td>
+        <td>${rankCell(ranks,s.id,s.sexe)}</td>
         <td onclick="event.stopPropagation()">
           <label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentLL('${escapeHtml(classe)}','${s.id}',this.checked)"> Absent</label>
         </td>
@@ -860,8 +883,8 @@ function renderLLGroupColumn(classe, group, ranks){
       <h3>Groupe ${group} (${students.length})</h3>
       <div class="table-wrapper scroll-y">
         <table>
-          <thead><tr style="background:${group==='A'?'var(--col-1)':'var(--col-2)'};"><th>Élève</th><th>Groupe</th><th>Résultat</th><th>Rang</th><th>Rang sexe</th><th>Absent</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="6">Aucun élève</td></tr>'}</tbody>
+          <thead><tr style="background:${group==='A'?'var(--col-1)':'var(--col-2)'};"><th>Élève</th><th>Groupe</th><th>Résultat</th><th>Rang</th><th>Absent</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="5">Aucun élève</td></tr>'}</tbody>
         </table>
       </div>
     </div>
@@ -997,11 +1020,9 @@ function renderSimpleNumericTest(classe, testKey){
   const container = qs('#testContent-'+slug(classe));
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const ranks = computeTestRanks(classe, testKey);
-  const rows = students.map((s,i)=>{
+  const rowsArr = students.map((s,i)=>{
     const r = s.results[testKey];
     const niveau = r && !r.absent && r.valeur!=null ? (config.niveauFn ? config.niveauFn(r.valeur) : niveauFromNote(r.note)) : null;
-    const rg = ranks.gen[s.id];
-    const rs = s.sexe==='F' ? ranks.F[s.id] : ranks.M[s.id];
     return `
       <tr class="${r&&r.absent?'row-absent':''}">
         <td class="row-clickable" onclick="focusSimpleInput('${slug(classe)}','${testKey}',${i})">${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
@@ -1009,26 +1030,19 @@ function renderSimpleNumericTest(classe, testKey){
           <input type="number" step="${config.step}" id="si-input-${testKey}-${slug(classe)}-${i}" value="${r&&r.valeur!=null?r.valeur:''}" placeholder="${config.unite}"
             ${r&&r.absent?'disabled':''}
             onkeydown="if(event.key==='Enter'){ event.preventDefault(); validerSimpleValeur('${escapeHtml(classe)}','${testKey}',${i}); }"
-            onchange="validerSimpleValeur('${escapeHtml(classe)}','${testKey}',${i})" style="width:90px;">
-          ${config.unite}
+            onchange="validerSimpleValeur('${escapeHtml(classe)}','${testKey}',${i})" style="width:70px;">
         </td>
-        <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}${r&&r.note!=null?notePill(r.note):''}</td>
-        <td>${rg!=null?medalFor(rg)+rg:'—'}</td>
-        <td>${rs!=null?rs:'—'}</td>
-        <td>${r&&r.valeur!=null?resetBtn(classe,s.id,testKey):''}</td>
-        <td><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentSimple('${escapeHtml(classe)}','${testKey}',${i},this.checked)"> Absent</label></td>
+        <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}${r&&r.note!=null?notePill(r.note):''}${r&&r.valeur!=null?resetBtn(classe,s.id,testKey):''}</td>
+        <td>${rankCell(ranks,s.id,s.sexe)}</td>
+        <td><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentSimple('${escapeHtml(classe)}','${testKey}',${i},this.checked)"></label></td>
       </tr>`;
-  }).join('');
+  });
+  const thead = `<thead><tr style="background:var(${config.couleur});"><th>Élève</th><th>${config.unite}</th><th>Niveau</th><th>Rang</th><th>Abs.</th></tr></thead>`;
   container.innerHTML = `
     <div class="card">
       <p class="help-text">Cliquez sur un élève ou saisissez la valeur (${config.unite}) puis appuyez sur Entrée pour valider et passer à l'élève suivant.</p>
-      <div class="table-wrapper scroll-y">
-        <table>
-          <thead><tr style="background:var(${config.couleur});"><th>Élève</th><th>Valeur</th><th>Niveau</th><th>Rang</th><th>Rang sexe</th><th></th><th>Absent</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="7">Aucun élève</td></tr>'}</tbody>
-        </table>
-      </div>
-    </div>`;
+    </div>
+    ${twoColumnBlocks(thead, rowsArr, 5)}`;
 }
 function focusSimpleInput(classeSlug, testKey, idx){
   const el = document.getElementById(`si-input-${testKey}-${classeSlug}-${idx}`);
@@ -1085,38 +1099,30 @@ function renderSouplesse(classe){
   const container = qs('#testContent-'+slug(classe));
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const ranks = computeTestRanks(classe, 'souplesse');
-  const rows = students.map((s,i)=>{
+  const rowsArr = students.map((s,i)=>{
     const r = s.results.souplesse;
     const niveau = r && !r.absent && r.perf!=null ? niveauFromNote(r.note) : null;
     const options = SOUPLESSE_LEVELS.map(l=>`<option value="${l.perf}" ${r&&r.perf===l.perf?'selected':''}>${escapeHtml(l.label)}</option>`).join('');
-    const rg = ranks.gen[s.id];
-    const rs = s.sexe==='F' ? ranks.F[s.id] : ranks.M[s.id];
     return `
       <tr class="${r&&r.absent?'row-absent':''}">
         <td>${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
         <td>
-          <select ${r&&r.absent?'disabled':''} onchange="validerSouplesse('${escapeHtml(classe)}',${i},this.value)">
+          <select style="max-width:150px;" ${r&&r.absent?'disabled':''} onchange="validerSouplesse('${escapeHtml(classe)}',${i},this.value)">
             <option value="">-- Choisir --</option>
             ${options}
           </select>
         </td>
-        <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}${r&&r.note!=null?notePill(r.note):''}</td>
-        <td>${rg!=null?medalFor(rg)+rg:'—'}</td>
-        <td>${rs!=null?rs:'—'}</td>
-        <td>${r&&r.perf!=null?resetBtn(classe,s.id,'souplesse'):''}</td>
-        <td><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentSimple('${escapeHtml(classe)}','souplesse',${i},this.checked)"> Absent</label></td>
+        <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}${r&&r.note!=null?notePill(r.note):''}${r&&r.perf!=null?resetBtn(classe,s.id,'souplesse'):''}</td>
+        <td>${rankCell(ranks,s.id,s.sexe)}</td>
+        <td><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentSimple('${escapeHtml(classe)}','souplesse',${i},this.checked)"></label></td>
       </tr>`;
-  }).join('');
+  });
+  const thead = `<thead><tr style="background:var(--col-8);"><th>Élève</th><th>Niveau atteint</th><th>Niveau</th><th>Rang</th><th>Abs.</th></tr></thead>`;
   container.innerHTML = `
     <div class="card">
       <p class="help-text">Choisissez le niveau atteint pour chaque élève dans la liste déroulante.</p>
-      <div class="table-wrapper scroll-y">
-        <table>
-          <thead><tr style="background:var(--col-8);"><th>Élève</th><th>Niveau atteint</th><th>Niveau</th><th>Rang</th><th>Rang sexe</th><th></th><th>Absent</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="7">Aucun élève</td></tr>'}</tbody>
-        </table>
-      </div>
-    </div>`;
+    </div>
+    ${twoColumnBlocks(thead, rowsArr, 5)}`;
 }
 async function validerSouplesse(classe, idx, value){
   const perf = parseFloat(value);
@@ -1146,28 +1152,25 @@ function renderVitesse(classe){
   const selName = selIdx!=null ? students[selIdx].nomPrenom : '--';
   const running = vitesseChrono.classe===classe && vitesseChrono.interval!==null;
   const ranks = computeTestRanks(classe, 'vitesse');
-  const rows = students.map((s,i)=>{
+  const rowsArr = students.map((s,i)=>{
     const r = s.results.vitesse;
     const niveau = r && !r.absent && r.temps!=null ? niveauVitesse(r.temps) : null;
     const isSelected = selIdx===i;
-    const rg = ranks.gen[s.id];
-    const rs = s.sexe==='F' ? ranks.F[s.id] : ranks.M[s.id];
     return `
       <tr class="${r&&r.absent?'row-absent':''} ${isSelected?'row-done':''} row-clickable" onclick="selectVitesseStudent('${escapeHtml(classe)}',${i})">
         <td>${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)} ${isSelected?'👉':''}</td>
         <td>
-          <input type="number" step="0.01" value="${r&&r.temps!=null?r.temps:''}" placeholder="sec" style="width:90px;"
+          <input type="number" step="0.01" value="${r&&r.temps!=null?r.temps:''}" placeholder="sec" style="width:70px;"
             onclick="event.stopPropagation()"
             ${r&&r.absent?'disabled':''}
-            onchange="setVitesseManuel('${escapeHtml(classe)}',${i},this.value)"> s
+            onchange="setVitesseManuel('${escapeHtml(classe)}',${i},this.value)">
         </td>
-        <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}${r&&r.note!=null?notePill(r.note):''}</td>
-        <td>${rg!=null?medalFor(rg)+rg:'—'}</td>
-        <td>${rs!=null?rs:'—'}</td>
-        <td onclick="event.stopPropagation()">${r&&r.temps!=null?resetBtn(classe,s.id,'vitesse'):''}</td>
-        <td onclick="event.stopPropagation()"><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentSimple('${escapeHtml(classe)}','vitesse',${i},this.checked)"> Absent</label></td>
+        <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}${r&&r.note!=null?notePill(r.note):''}${r&&r.temps!=null?resetBtn(classe,s.id,'vitesse'):''}</td>
+        <td>${rankCell(ranks,s.id,s.sexe)}</td>
+        <td onclick="event.stopPropagation()"><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentSimple('${escapeHtml(classe)}','vitesse',${i},this.checked)"></label></td>
       </tr>`;
-  }).join('');
+  });
+  const thead = `<thead><tr style="background:var(--col-5);"><th>Élève</th><th>Temps</th><th>Niveau</th><th>Rang</th><th>Abs.</th></tr></thead>`;
   container.innerHTML = `
     <div class="card">
       <div class="row-flex">
@@ -1178,13 +1181,8 @@ function renderVitesse(classe){
           : `<button class="btn-danger" onclick="stopVitesseChrono('${escapeHtml(classe)}')">⏹️ Arrêter</button>`}
       </div>
       <p class="help-text">Cliquez sur un élève pour le sélectionner, puis « Démarrer » lance le chrono. « Arrêter » enregistre le temps et sélectionne automatiquement l'élève suivant.</p>
-      <div class="table-wrapper scroll-y">
-        <table>
-          <thead><tr style="background:var(--col-5);"><th>Élève</th><th>Temps</th><th>Niveau</th><th>Rang</th><th>Rang sexe</th><th></th><th>Absent</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="7">Aucun élève</td></tr>'}</tbody>
-        </table>
-      </div>
-    </div>`;
+    </div>
+    ${twoColumnBlocks(thead, rowsArr, 5)}`;
   if(running) updateVitesseChronoDisplay(classe);
 }
 function selectVitesseStudent(classe, idx){
@@ -1312,14 +1310,14 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
     } else {
       actionCell = `${tours} tour(s)`;
     }
-    const rg = ranks.gen[s.id];
-    const rs = s.sexe==='F' ? ranks.F[s.id] : ranks.M[s.id];
+    const nomCell = clickableRow
+      ? `<span class="dc-tile">🏃 ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</span>`
+      : `${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}`;
     return `
       <tr class="${absent?'row-absent':(done?'row-done':'')} ${clickableRow?'row-clickable':''}" ${clickableRow?`onclick="incrementTour('${escapeHtml(classe)}','${s.id}')"`:''}>
-        <td>${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
+        <td>${nomCell}</td>
         <td onclick="event.stopPropagation()">${actionCell}</td>
-        <td>${rg!=null?medalFor(rg)+rg:'—'}</td>
-        <td>${rs!=null?rs:'—'}</td>
+        <td>${rankCell(ranks,s.id,s.sexe)}</td>
         <td onclick="event.stopPropagation()">${!done ? `<label><input type="checkbox" class="absent-checkbox" ${absent?'checked':''} onchange="toggleAbsentDemiCooper('${escapeHtml(classe)}','${s.id}',this.checked)"> Absent</label>` : ''}</td>
       </tr>`;
   }).join('');
@@ -1328,8 +1326,8 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
       <h3>Groupe ${group} (${students.length})</h3>
       <div class="table-wrapper scroll-y">
         <table>
-          <thead><tr style="background:${group==='A'?'var(--col-1)':'var(--col-2)'};"><th>Élève</th><th>Tours / Résultat</th><th>Rang</th><th>Rang sexe</th><th>Absent</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="5">Aucun élève</td></tr>'}</tbody>
+          <thead><tr style="background:${group==='A'?'var(--col-1)':'var(--col-2)'};"><th>Élève</th><th>Tours / Résultat</th><th>Rang</th><th>Absent</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="4">Aucun élève</td></tr>'}</tbody>
         </table>
       </div>
     </div>
@@ -1434,87 +1432,37 @@ async function validerDemiCooperFinal(classe, studentId, suppValue){
   }
 }
 
-/* ===================== VITESSE 40m (3 chronos simultanés, 5-4-3ème) ===================== */
-let vitesse40Chrono = { classe:null, running:false, startTs:null, lanes:[null,null,null], stopped:[false,false,false] };
-function ensureVitesse40Lanes(classe){
-  const cl = STATE.classes[classe];
-  const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
-  if(vitesse40Chrono.classe!==classe){
-    vitesse40Chrono = { classe, running:false, startTs:null, lanes:[null,null,null], stopped:[false,false,false] };
-  }
-  const inLanes = new Set(vitesse40Chrono.lanes.filter(x=>x!=null));
-  for(let lane=0; lane<3; lane++){
-    if(vitesse40Chrono.lanes[lane]==null){
-      const nextIdx = students.findIndex((s,i)=> !inLanes.has(i) && !s.results.vitesse40);
-      if(nextIdx!==-1){ vitesse40Chrono.lanes[lane]=nextIdx; inLanes.add(nextIdx); vitesse40Chrono.stopped[lane]=false; }
-    }
-  }
-  return students;
-}
+/* ===================== VITESSE 40m (1 chrono, 3 arrivées tamponnées puis attribuées, 5-4-3ème) ===================== */
+let vitesse40Heat = { classe:null, running:false, startTs:null, stamps:[], assignedCount:0 };
 function renderVitesse40(classe){
-  const students = ensureVitesse40Lanes(classe);
+  if(vitesse40Heat.classe!==classe){
+    vitesse40Heat = { classe, running:false, startTs:null, stamps:[], assignedCount:0 };
+  }
+  const cl = STATE.classes[classe];
   const container = qs('#testContent-'+slug(classe));
-  const running = vitesse40Chrono.running;
-  const laneHtml = [0,1,2].map(lane=>{
-    const idx = vitesse40Chrono.lanes[lane];
-    const s = idx!=null ? students[idx] : null;
-    const stopped = vitesse40Chrono.stopped[lane];
-    return `
-      <div class="card">
-        <h3>Couloir ${lane+1}</h3>
-        ${s ? `<p><strong>${escapeHtml(s.nomPrenom)}</strong> ${sexeIcon(s.sexe)}</p>` : '<p class="help-text">Aucun élève restant</p>'}
-        <div class="chrono-display" id="v40-display-${lane}-${slug(classe)}">0.00 s</div>
-        ${s && running && !stopped ? `<button class="btn-danger" onclick="stopVitesse40Lane('${escapeHtml(classe)}',${lane})">⏹️ Arrêter</button>` : ''}
-      </div>`;
-  }).join('');
-  const anyLaneFilled = vitesse40Chrono.lanes.some(x=>x!=null);
+  const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
+  const running = vitesse40Heat.running;
+  const pending = vitesse40Heat.stamps.length - vitesse40Heat.assignedCount;
+  const stampsHtml = vitesse40Heat.stamps.map((t,i)=>{
+    const assigned = i<vitesse40Heat.assignedCount;
+    return `<span class="badge" style="background:${assigned?'#94a3b8':'var(--col-6)'};">Arrivée ${i+1} : ${t.toFixed(2)}s${assigned?' ✓':''}</span>`;
+  }).join(' ');
   container.innerHTML = `
     <div class="card">
-      <p class="help-text">3 élèves courent en même temps. Cliquez « Départ commun » pour lancer les 3 chronos, puis « Arrêter » individuellement à l'arrivée de chacun.</p>
-      ${!running ? `<button class="btn-primary" ${!anyLaneFilled?'disabled':''} onclick="departVitesse40('${escapeHtml(classe)}')">▶️ Départ commun</button>` : ''}
-    </div>
-    <div class="ll-columns" style="grid-template-columns:repeat(3,1fr);">
-      ${laneHtml}
+      <div class="row-flex">
+        ${!running
+          ? `<button class="btn-primary" onclick="departVitesse40('${escapeHtml(classe)}')">▶️ Départ commun</button>`
+          : `<button class="btn-success" ${vitesse40Heat.stamps.length>=3?'disabled':''} onclick="stampVitesse40('${escapeHtml(classe)}')">🏁 Arrivée (${vitesse40Heat.stamps.length}/3)</button>
+             <button class="btn-danger" onclick="stopVitesse40Heat('${escapeHtml(classe)}')">⏹️ Arrêter</button>
+             <div class="chrono-display" id="v40-live-${slug(classe)}">0.00 s</div>`}
+      </div>
+      ${stampsHtml?`<div class="row-flex" style="margin-top:6px;">${stampsHtml}</div>`:''}
+      <p class="help-text">${pending>0 ? `Cliquez sur ${pending} élève(s) dans la liste ci-dessous, dans l'ordre exact d'arrivée, pour leur attribuer un temps.` : "Cliquez « Départ commun », puis « Arrivée » à chaque franchissement de ligne (jusqu'à 3 coureurs)."}</p>
     </div>
     <div id="v40-roster-${slug(classe)}"></div>
   `;
   renderVitesse40Roster(classe, students);
-  if(running) updateVitesse40Display(classe);
-}
-function renderVitesse40Roster(classe, students){
-  const container = document.getElementById('v40-roster-'+slug(classe));
-  if(!container) return;
-  const ranks = computeTestRanks(classe, 'vitesse40');
-  const rows = students.map((s,i)=>{
-    const r = s.results.vitesse40;
-    const niveau = r && !r.absent && r.temps!=null ? niveauFromNote(r.note) : null;
-    const rg = ranks.gen[s.id];
-    const rs = s.sexe==='F' ? ranks.F[s.id] : ranks.M[s.id];
-    return `
-      <tr class="${r&&r.absent?'row-absent':''}">
-        <td>${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
-        <td>
-          <input type="number" step="0.01" value="${r&&r.temps!=null?r.temps:''}" placeholder="sec" style="width:90px;"
-            ${r&&r.absent?'disabled':''}
-            onchange="setVitesse40Manuel('${escapeHtml(classe)}',${i},this.value)"> s
-        </td>
-        <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}${r&&r.note!=null?notePill(r.note):''}</td>
-        <td>${rg!=null?medalFor(rg)+rg:'—'}</td>
-        <td>${rs!=null?rs:'—'}</td>
-        <td>${r&&r.temps!=null?resetBtn(classe,s.id,'vitesse40'):''}</td>
-        <td><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentVitesse40('${escapeHtml(classe)}',${i},this.checked)"> Absent</label></td>
-      </tr>`;
-  }).join('');
-  container.innerHTML = `
-    <div class="card">
-      <h3>Résultats</h3>
-      <div class="table-wrapper scroll-y">
-        <table>
-          <thead><tr style="background:var(--col-5);"><th>Élève</th><th>Temps</th><th>Niveau</th><th>Rang</th><th>Rang sexe</th><th></th><th>Absent</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="7">Aucun élève</td></tr>'}</tbody>
-        </table>
-      </div>
-    </div>`;
+  if(running) updateVitesse40Live(classe);
 }
 function departVitesse40(classe){
   for(const c of STATE.order){
@@ -1523,74 +1471,102 @@ function departVitesse40(classe){
       return;
     }
   }
-  vitesse40Chrono.running = true;
-  vitesse40Chrono.startTs = performance.now();
-  vitesse40Chrono.stopped = vitesse40Chrono.lanes.map(x=>x==null);
+  vitesse40Heat.running = true;
+  vitesse40Heat.startTs = performance.now();
+  vitesse40Heat.stamps = [];
+  vitesse40Heat.assignedCount = 0;
   if(liveTimer) clearInterval(liveTimer);
-  liveTimer = setInterval(()=>updateVitesse40Display(classe), 30);
+  liveTimer = setInterval(()=>updateVitesse40Live(classe), 30);
   renderClassTab(classe);
 }
-function updateVitesse40Display(classe){
-  if(!vitesse40Chrono.running) return;
-  const elapsed = (performance.now()-vitesse40Chrono.startTs)/1000;
-  [0,1,2].forEach(lane=>{
-    if(vitesse40Chrono.lanes[lane]!=null && !vitesse40Chrono.stopped[lane]){
-      const el = document.getElementById(`v40-display-${lane}-${slug(classe)}`);
-      if(el) el.textContent = elapsed.toFixed(2)+' s';
-    }
-  });
+function updateVitesse40Live(classe){
+  if(!vitesse40Heat.running) return;
+  const el = document.getElementById('v40-live-'+slug(classe));
+  if(el) el.textContent = ((performance.now()-vitesse40Heat.startTs)/1000).toFixed(2)+' s';
 }
-async function stopVitesse40Lane(classe, lane){
-  if(!vitesse40Chrono.running || vitesse40Chrono.stopped[lane]) return;
-  const elapsed = (performance.now()-vitesse40Chrono.startTs)/1000;
-  const temps = Math.round(elapsed*100)/100;
-  vitesse40Chrono.stopped[lane] = true;
+function stampVitesse40(classe){
+  if(!vitesse40Heat.running || vitesse40Heat.stamps.length>=3) return;
+  const elapsed = (performance.now()-vitesse40Heat.startTs)/1000;
+  vitesse40Heat.stamps.push(Math.round(elapsed*100)/100);
+  if(vitesse40Heat.stamps.length>=3) stopVitesse40Heat(classe);
+  else renderClassTab(classe);
+}
+function stopVitesse40Heat(classe){
+  vitesse40Heat.running = false;
+  if(liveTimer){ clearInterval(liveTimer); liveTimer=null; }
+  renderClassTab(classe);
+}
+async function assignVitesse40(classe, studentId){
+  if(vitesse40Heat.classe!==classe || vitesse40Heat.assignedCount>=vitesse40Heat.stamps.length) return;
+  const temps = vitesse40Heat.stamps[vitesse40Heat.assignedCount];
+  vitesse40Heat.assignedCount++;
   const cl = STATE.classes[classe];
-  const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
-  const idx = vitesse40Chrono.lanes[lane];
-  const student = students[idx];
-  student.results.vitesse40 = {absent:false, temps, note:null};
-  vitesse40Chrono.lanes[lane] = null;
+  const s = cl.students.find(x=>x.id===studentId);
+  if(!s) return;
+  s.results.vitesse40 = {absent:false, temps, note:null};
   saveState();
-  if(vitesse40Chrono.stopped.every(v=>v)){
-    vitesse40Chrono.running = false;
-    if(liveTimer){ clearInterval(liveTimer); liveTimer=null; }
-  }
   renderClassTab(classe);
-  const note = await computeNote(classe, 'vitesse', temps, student.sexe);
-  if(student.results.vitesse40 && student.results.vitesse40.temps===temps){
-    student.results.vitesse40.note = note;
+  const note = await computeNote(classe, 'vitesse', temps, s.sexe);
+  if(s.results.vitesse40 && s.results.vitesse40.temps===temps){
+    s.results.vitesse40.note = note;
     saveState();
     renderClassTab(classe);
     syncToSheet(classe);
   }
 }
-async function setVitesse40Manuel(classe, idx, value){
+function renderVitesse40Roster(classe, students){
+  const container = document.getElementById('v40-roster-'+slug(classe));
+  if(!container) return;
+  const ranks = computeTestRanks(classe, 'vitesse40');
+  const pending = (vitesse40Heat.classe===classe) ? (vitesse40Heat.stamps.length - vitesse40Heat.assignedCount) : 0;
+  const rowsArr = students.map((s)=>{
+    const r = s.results.vitesse40;
+    const niveau = r && !r.absent && r.temps!=null ? niveauFromNote(r.note) : null;
+    const clickable = pending>0 && !r;
+    const nomCell = clickable
+      ? `<span class="dc-tile">🏁 ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</span>`
+      : `${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}`;
+    let valeurCell;
+    if(r && r.temps!=null){
+      valeurCell = `<input type="number" step="0.01" value="${r.temps}" style="width:70px;" ${r.absent?'disabled':''} onclick="event.stopPropagation()" onchange="setVitesse40Manuel('${escapeHtml(classe)}','${s.id}',this.value)">`;
+    } else {
+      valeurCell = '—';
+    }
+    return `
+      <tr class="${r&&r.absent?'row-absent':''} ${clickable?'row-clickable':''}" ${clickable?`onclick="assignVitesse40('${escapeHtml(classe)}','${s.id}')"`:''}>
+        <td>${nomCell}</td>
+        <td onclick="event.stopPropagation()">${valeurCell}</td>
+        <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}${r&&r.note!=null?notePill(r.note):''}${r&&r.temps!=null?resetBtn(classe,s.id,'vitesse40'):''}</td>
+        <td>${rankCell(ranks,s.id,s.sexe)}</td>
+        <td onclick="event.stopPropagation()"><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentVitesse40('${escapeHtml(classe)}','${s.id}',this.checked)"></label></td>
+      </tr>`;
+  });
+  const thead = `<thead><tr style="background:var(--col-5);"><th>Élève</th><th>Temps</th><th>Niveau</th><th>Rang</th><th>Abs.</th></tr></thead>`;
+  container.innerHTML = twoColumnBlocks(thead, rowsArr, 5);
+}
+async function setVitesse40Manuel(classe, studentId, value){
   const val = parseFloat(value);
   if(isNaN(val)) return;
   const cl = STATE.classes[classe];
-  const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
-  const student = students[idx];
-  student.results.vitesse40 = {absent:false, temps:val, note:null};
+  const s = cl.students.find(x=>x.id===studentId);
+  if(!s) return;
+  s.results.vitesse40 = {absent:false, temps:val, note:null};
   saveState();
   renderClassTab(classe);
-  const note = await computeNote(classe, 'vitesse', val, student.sexe);
-  if(student.results.vitesse40 && student.results.vitesse40.temps===val){
-    student.results.vitesse40.note = note;
+  const note = await computeNote(classe, 'vitesse', val, s.sexe);
+  if(s.results.vitesse40 && s.results.vitesse40.temps===val){
+    s.results.vitesse40.note = note;
     saveState();
     renderClassTab(classe);
     syncToSheet(classe);
   }
 }
-function toggleAbsentVitesse40(classe, idx, checked){
+function toggleAbsentVitesse40(classe, studentId, checked){
   const cl = STATE.classes[classe];
-  const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
-  const student = students[idx];
-  if(checked) student.results.vitesse40 = {absent:true};
-  else student.results.vitesse40 = null;
-  if(vitesse40Chrono.classe===classe && !vitesse40Chrono.running){
-    vitesse40Chrono.lanes = vitesse40Chrono.lanes.map(l=> l===idx?null:l);
-  }
+  const s = cl.students.find(x=>x.id===studentId);
+  if(!s) return;
+  if(checked) s.results.vitesse40 = {absent:true};
+  else s.results.vitesse40 = null;
   saveState();
   renderClassTab(classe);
   syncToSheet(classe);
