@@ -266,7 +266,7 @@ const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=
 const BAREME_GIDS = { '6eme':'705116735', '5eme':'120996016', '4eme3eme':'1231103491' };
 function baremeUrl(niveau){ return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${BAREME_GIDS[niveau]}`; }
 const STORAGE_KEY = "epsJoliotCurie_testsPhysiques_v1";
-const APPS_SCRIPT_URL = "";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxhPLF5160Lb5vv0BV8v9A6aq7t_7ttNXoysrd5ddO5132f995C1IJkCm3UM-4zkcMu/exec";
 
 function getNiveau(classe){
   const m = (classe||'').match(/(\d)/);
