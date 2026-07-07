@@ -817,6 +817,7 @@ function renderClassTab(classe){
               ${options.map(o=>`<option value="${o.value}" ${cl.testMode===o.value?'selected':''}>${o.label}</option>`).join('')}
             </select>
           </label>
+          ${cl.testMode ? `<button class="btn-danger" onclick="resetAllResultsForTest('${escapeHtml(classe)}','${cl.testMode}')">🗑️ Réinitialiser ce test</button>` : ''}
         </div>
       </div>
       ${GROUP_TESTS.includes(cl.testMode) ? `<div class="row-flex"><span class="badge groupA">Groupe A : ${nbA} élève(s)</span><span class="badge groupB">Groupe B : ${nbB} élève(s)</span></div>` : ''}
@@ -837,6 +838,27 @@ function setTestMode(classe, mode){
   STATE.classes[classe].testMode = mode || null;
   saveState();
   renderClassTab(classe);
+}
+function resetAllResultsForTest(classe, testKey){
+  const def = TEST_DEFS[testKey];
+  const label = def ? def.label : testKey;
+  if(!confirm(`Réinitialiser TOUS les résultats de « ${label} » pour la classe ${classe} ? Cette action est irréversible.`)) return;
+  const cl = STATE.classes[classe];
+  cl.students.forEach(s=>{ s.results[testKey] = null; });
+  if(testKey==='lucLeger' || testKey==='demiCooper'){
+    cl.runState = {running:false};
+    if(liveTimer){ clearInterval(liveTimer); liveTimer=null; }
+  }
+  if(testKey==='vitesse' && vitesseChrono.classe===classe){
+    if(vitesseChrono.interval) clearInterval(vitesseChrono.interval);
+    vitesseChrono = {classe:null, studentIdx:null, startTs:null, interval:null};
+  }
+  if(testKey==='vitesse40' && vitesse40Heat.classe===classe){
+    vitesse40Heat = {classe:null, running:false, startTs:null, stamps:[], assignedCount:0};
+  }
+  saveState();
+  renderClassTab(classe);
+  syncToSheet(classe);
 }
 
 /* ===================== LUC LEGER ===================== */
@@ -1626,7 +1648,7 @@ function toggleAbsentVitesse40(classe, studentId, checked){
 /* ===================== DEFINITIONS DES EPREUVES (partagé Résultats/Statistiques) ===================== */
 const TEST_DEFS = {
   lucLeger: {
-    label:'Endurance (Luc Léger)', resultsKey:'lucLeger', higherIsBetter:true, unite:'km/h',
+    label:'Endurance (Luc Léger)', resultsKey:'lucLeger', higherIsBetter:true, unite:'km/h', colorVar:'--col-4',
     isDone:r=>!!(r&&r.done), isAbsent:r=>!!(r&&r.absent),
     display:r=>`Palier ${r.palier} · ${r.vitesse.toFixed(1)} km/h · ${formatMMSS(r.temps)}`,
     value:r=>r.vitesse*100000+r.temps,
@@ -1634,51 +1656,51 @@ const TEST_DEFS = {
     niveau:r=>niveauLucLeger(r.vitesse)
   },
   longueur: {
-    label:'Longueur', resultsKey:'longueur', higherIsBetter:true, unite:'cm',
+    label:'Longueur', resultsKey:'longueur', higherIsBetter:true, unite:'cm', colorVar:'--col-3',
     isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>!!(r&&r.absent),
     display:r=>`${r.valeur} cm`, value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauLongueur(r.valeur)
   },
   vitesse: {
-    label:'Vitesse 30m', resultsKey:'vitesse', higherIsBetter:false, unite:'s',
+    label:'Vitesse 30m', resultsKey:'vitesse', higherIsBetter:false, unite:'s', colorVar:'--col-5',
     isDone:r=>!!(r&&r.temps!=null), isAbsent:r=>!!(r&&r.absent),
     display:r=>`${r.temps} s`, value:r=>r.temps, avgValue:r=>r.temps,
     niveau:r=>niveauVitesse(r.temps)
   },
   detenteVerticale: {
-    label:'Détente verticale', resultsKey:'detenteVerticale', higherIsBetter:true, unite:'cm',
+    label:'Détente verticale', resultsKey:'detenteVerticale', higherIsBetter:true, unite:'cm', colorVar:'--col-6',
     isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>!!(r&&r.absent),
     display:r=>`${r.valeur} cm`, value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauFromNote(r.note)
   },
   pompes: {
-    label:'Pompes', resultsKey:'pompes', higherIsBetter:true, unite:'reps',
+    label:'Pompes', resultsKey:'pompes', higherIsBetter:true, unite:'reps', colorVar:'--col-7',
     isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>!!(r&&r.absent),
     display:r=>`${r.valeur} reps`, value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauFromNote(r.note)
   },
   souplesse: {
-    label:'Souplesse', resultsKey:'souplesse', higherIsBetter:true, unite:'/5',
+    label:'Souplesse', resultsKey:'souplesse', higherIsBetter:true, unite:'/5', colorVar:'--col-8',
     isDone:r=>!!(r&&r.perf!=null), isAbsent:r=>!!(r&&r.absent),
     display:r=>{ const l=SOUPLESSE_LEVELS.find(x=>x.perf===r.perf); return l?l.label:String(r.perf); },
     value:r=>r.perf, avgValue:r=>r.perf,
     niveau:r=>niveauFromNote(r.note)
   },
   demiCooper: {
-    label:'Endurance (Demi-Cooper)', resultsKey:'demiCooper', higherIsBetter:true, unite:'m',
+    label:'Endurance (Demi-Cooper)', resultsKey:'demiCooper', higherIsBetter:true, unite:'m', colorVar:'--col-4',
     isDone:r=>!!(r&&r.done), isAbsent:r=>!!(r&&r.absent),
     display:r=>`${r.valeur} m (${r.tours} tour(s) + ${r.distanceSupp||0}m)`,
     value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauFromNote(r.note)
   },
   vitesse40: {
-    label:'Vitesse 40m', resultsKey:'vitesse40', higherIsBetter:false, unite:'s',
+    label:'Vitesse 40m', resultsKey:'vitesse40', higherIsBetter:false, unite:'s', colorVar:'--col-5',
     isDone:r=>!!(r&&r.temps!=null), isAbsent:r=>!!(r&&r.absent),
     display:r=>`${r.temps} s`, value:r=>r.temps, avgValue:r=>r.temps,
     niveau:r=>niveauFromNote(r.note)
   },
   detenteHorizontale: {
-    label:'Détente horizontale', resultsKey:'detenteHorizontale', higherIsBetter:true, unite:'m',
+    label:'Détente horizontale', resultsKey:'detenteHorizontale', higherIsBetter:true, unite:'m', colorVar:'--col-3',
     isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>!!(r&&r.absent),
     display:r=>`${r.valeur} m`, value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauFromNote(r.note)
@@ -1716,11 +1738,10 @@ function buildResultColumns(niveau){
     {key:'classe', label:'Classe', colorVar:'--col-2'},
     {key:'sexe', label:'Sexe', colorVar:'--col-3'}
   ];
-  const palette = ['--col-4','--col-5','--col-6','--col-7','--col-8','--col-1'];
   const testCols = [];
-  NIVEAU_TESTS[niveau].forEach((testKey,i)=>{
+  NIVEAU_TESTS[niveau].forEach(testKey=>{
     const def = TEST_DEFS[testKey];
-    const colorVar = palette[i % palette.length];
+    const colorVar = def.colorVar;
     testCols.push(
       {key:testKey+'_resultat', label:def.label+' - Résultat', colorVar},
       {key:testKey+'_niveau', label:def.label+' - Niveau', colorVar},
@@ -1796,15 +1817,14 @@ function renderResultats(){
   let rows = buildResultRows(classe);
   rows.sort((a,b)=>compareForSort(a,b,resultatsSort.key,resultatsSort.dir));
 
-  const palette = ['--col-4','--col-5','--col-6','--col-7','--col-8','--col-1'];
   const sortArrow = key => resultatsSort.key===key ? (resultatsSort.dir==='asc'?'▲':'▼') : '';
   let row1 = `<th class="sticky-col" style="background:var(--col-1);" rowspan="2" onclick="onSortResultats('nomPrenom')">Nom ${sortArrow('nomPrenom')}</th>`;
   row1 += `<th style="background:var(--col-2);" rowspan="2" onclick="onSortResultats('classe')">Classe ${sortArrow('classe')}</th>`;
   row1 += `<th style="background:var(--col-3);" rowspan="2" onclick="onSortResultats('sexe')">Sexe ${sortArrow('sexe')}</th>`;
   let row2 = '';
-  NIVEAU_TESTS[niveau].forEach((testKey,i)=>{
+  NIVEAU_TESTS[niveau].forEach(testKey=>{
     const def = TEST_DEFS[testKey];
-    const colorVar = palette[i % palette.length];
+    const colorVar = def.colorVar;
     row1 += `<th colspan="3" style="background:var(${colorVar});">${def.label}</th>`;
     row2 += `<th style="background:var(${colorVar});" onclick="onSortResultats('${testKey}_resultat')">Résultat ${sortArrow(testKey+'_resultat')}</th>`;
     row2 += `<th style="background:var(${colorVar});" onclick="onSortResultats('${testKey}_niveau')">Niveau ${sortArrow(testKey+'_niveau')}</th>`;
