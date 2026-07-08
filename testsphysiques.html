@@ -532,6 +532,10 @@ async function doSyncToSheet(classe){
   if(!APPS_SCRIPT_URL || !STATE.classes[classe]) return;
   setSyncStatus(classe, 'Synchronisation en cours...');
   try{
+    // On récupère d'abord ce qui existe déjà sur le Sheet (fusion additive, sans jamais
+    // écraser une donnée locale déjà présente) avant d'envoyer, pour ne jamais régresser
+    // les résultats d'un autre appareil que cet appareil n'a pas encore en local.
+    await fetchAndMergeResultsFromSheet(classe);
     const cl = STATE.classes[classe];
     const columns = buildResultColumns(getNiveau(classe));
     const rows = buildResultRows(classe).sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
@@ -553,6 +557,7 @@ async function doSyncToSheet(classe){
       headers:{'Content-Type':'text/plain;charset=utf-8'},
       body: JSON.stringify(payload)
     });
+    renderClassTab(classe);
     setSyncStatus(classe, 'Dernière synchro : '+new Date().toLocaleTimeString('fr-FR'));
   }catch(err){
     console.warn('Synchro Google Sheet impossible', err);
@@ -577,7 +582,20 @@ async function fetchAndMergeResultsFromSheet(classe){
     const sexe = idxSexe!==-1 ? row[idxSexe] : null;
     const student = cl.students.find(s=>s.nomPrenom===nomPrenom && (sexe==null || s.sexe===sexe));
     if(student && row[idxRaw]){
-      try{ student.results = JSON.parse(row[idxRaw]); count++; }catch(e){ /* ligne illisible, ignorée */ }
+      try{
+        const incoming = JSON.parse(row[idxRaw]);
+        if(!student.results) student.results = {};
+        let changed = false;
+        Object.keys(incoming||{}).forEach(testKey=>{
+          const localVal = student.results[testKey];
+          const isLocalEmpty = localVal===undefined || localVal===null;
+          if(isLocalEmpty && incoming[testKey]!=null){
+            student.results[testKey] = incoming[testKey];
+            changed = true;
+          }
+        });
+        if(changed) count++;
+      }catch(e){ /* ligne illisible, ignorée */ }
     }
   });
   saveState();
@@ -600,10 +618,7 @@ async function synchroniserTout(){
   let nbErreurs = 0;
   for(const classe of STATE.order){
     try{
-      await doSyncToSheet(classe);
-      const {ok} = await fetchAndMergeResultsFromSheet(classe);
-      if(ok) renderClassTab(classe);
-      else nbErreurs++;
+      await doSyncToSheet(classe); // pull-merge puis push, en interne
     }catch(err){
       console.warn('Synchronisation impossible pour', classe, err);
       nbErreurs++;
