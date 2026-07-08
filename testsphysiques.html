@@ -191,6 +191,7 @@ thead th.sticky-col{background:#334155;z-index:3;}
   display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;
 }
 .modal-overlay.hidden{display:none;}
+.hidden{display:none;}
 .modal{background:#fff;border-radius:14px;padding:22px;max-width:480px;width:100%;}
 .import-class-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0;}
 .import-class-grid button{width:100%;}
@@ -217,8 +218,16 @@ footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:
 <body>
 
 <header class="app-header">
-  <h1>EPS Joliot Curie - Tests Physiques</h1>
-  <p>Suivi des tests physiques 6ème à 3ème : endurance, vitesse, force</p>
+  <div class="row-flex" style="justify-content:space-between;">
+    <div>
+      <h1>EPS Joliot Curie - Tests Physiques</h1>
+      <p>Suivi des tests physiques 6ème à 3ème : endurance, vitesse, force</p>
+    </div>
+    <div id="globalSyncBar" class="row-flex hidden">
+      <button class="btn-secondary" onclick="synchroniserTout()">🔄 Synchroniser</button>
+      <span id="global-sync-status" style="color:#fff;opacity:.9;font-size:.8rem;"></span>
+    </div>
+  </div>
 </header>
 
 <nav class="tabs" id="mainTabs"></nav>
@@ -574,37 +583,38 @@ async function fetchAndMergeResultsFromSheet(classe){
   saveState();
   return {ok:true, count};
 }
-async function chargerResultatsDepuisSheet(classe){
-  if(!APPS_SCRIPT_URL){ alert("La synchronisation Google Sheet n'est pas configurée."); return; }
-  if(!STATE.classes[classe]) return;
-  if(!confirm(`Charger les résultats déjà enregistrés dans le Google Sheet pour ${classe} ? Cela remplacera les résultats actuellement affichés sur cet appareil pour les élèves concernés.`)) return;
-  setSyncStatus(classe, 'Chargement depuis le Google Sheet...');
-  try{
-    const {ok, count, error} = await fetchAndMergeResultsFromSheet(classe);
-    if(!ok) throw new Error(error);
-    renderClassTab(classe);
-    setSyncStatus(classe, `${count} élève(s) mis à jour depuis le Google Sheet.`);
-  }catch(err){
-    console.warn('Chargement depuis Google Sheet impossible', err);
-    setSyncStatus(classe, "Erreur lors du chargement depuis le Google Sheet.");
-  }
-}
 async function autoLoadAllFromSheet(){
   if(!APPS_SCRIPT_URL) return;
   for(const classe of STATE.order){
     try{
       const {ok} = await fetchAndMergeResultsFromSheet(classe);
-      if(ok){
-        renderClassTab(classe);
-        setSyncStatus(classe, 'Résultats à jour (chargés automatiquement depuis le Sheet à l\'ouverture).');
-      }
+      if(ok) renderClassTab(classe);
     }catch(err){
       console.warn('Auto-chargement depuis le Sheet impossible pour', classe, err);
     }
   }
 }
+async function synchroniserTout(){
+  if(!APPS_SCRIPT_URL) return;
+  setSyncStatus(null, 'Synchronisation en cours...');
+  let nbErreurs = 0;
+  for(const classe of STATE.order){
+    try{
+      await doSyncToSheet(classe);
+      const {ok} = await fetchAndMergeResultsFromSheet(classe);
+      if(ok) renderClassTab(classe);
+      else nbErreurs++;
+    }catch(err){
+      console.warn('Synchronisation impossible pour', classe, err);
+      nbErreurs++;
+    }
+  }
+  setSyncStatus(null, nbErreurs===0
+    ? 'Tout est synchronisé (' + new Date().toLocaleTimeString('fr-FR') + ')'
+    : `Synchronisé avec ${nbErreurs} erreur(s) — vérifiez la connexion.`);
+}
 function setSyncStatus(classe, text){
-  const el = document.getElementById('sync-status-'+slug(classe));
+  const el = document.getElementById('global-sync-status');
   if(el) el.textContent = text;
 }
 let baremeCache = {};
@@ -897,9 +907,6 @@ function renderClassTab(classe){
         </div>
       </div>
       ${GROUP_TESTS.includes(cl.testMode) ? `<div class="row-flex"><span class="badge groupA">Groupe A : ${nbA} élève(s)</span><span class="badge groupB">Groupe B : ${nbB} élève(s)</span></div>` : ''}
-      ${APPS_SCRIPT_URL
-        ? `<p class="help-text">📤 <span id="sync-status-${slug(classe)}">Pas encore synchronisé</span> — <a href="#" onclick="doSyncToSheet('${escapeHtml(classe)}'); return false;">Synchroniser maintenant</a> · <a href="#" onclick="chargerResultatsDepuisSheet('${escapeHtml(classe)}'); return false;">⬇️ Charger depuis le Sheet (autre appareil)</a></p>`
-        : `<p class="help-text">📤 Écriture automatique vers Google Sheet non configurée (voir Apps Script à déployer).</p>`}
     </div>
     <div id="testContent-${slug(classe)}"></div>
   `;
@@ -2058,6 +2065,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   } else {
     switchTab('resultats');
   }
+  if(APPS_SCRIPT_URL) qs('#globalSyncBar').classList.remove('hidden');
   autoLoadAllFromSheet();
 });
 </script>
