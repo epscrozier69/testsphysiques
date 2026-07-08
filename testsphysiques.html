@@ -429,7 +429,7 @@ function resetResult(classe, studentId, testKey){
   s.results[testKey] = null;
   saveState();
   renderClassTab(classe);
-  syncToSheet(classe);
+  syncToSheet(classe, true);
 }
 function resetBtn(classe, studentId, testKey){
   return `<button class="reset-icon" onclick="event.stopPropagation();resetResult('${escapeHtml(classe)}','${studentId}','${testKey}')" title="Recommencer">↺</button>`;
@@ -523,19 +523,21 @@ function lookupNote(table, valeur, sexe, higherIsBetter){
   }
 }
 let syncTimers = {};
-function syncToSheet(classe){
+function syncToSheet(classe, skipPull){
   if(!APPS_SCRIPT_URL) return;
   if(syncTimers[classe]) clearTimeout(syncTimers[classe]);
-  syncTimers[classe] = setTimeout(()=>doSyncToSheet(classe), 1200);
+  syncTimers[classe] = setTimeout(()=>doSyncToSheet(classe, skipPull), 1200);
 }
-async function doSyncToSheet(classe){
+async function doSyncToSheet(classe, skipPull){
   if(!APPS_SCRIPT_URL || !STATE.classes[classe]) return;
   setSyncStatus(classe, 'Synchronisation en cours...');
   try{
     // On récupère d'abord ce qui existe déjà sur le Sheet (fusion additive, sans jamais
     // écraser une donnée locale déjà présente) avant d'envoyer, pour ne jamais régresser
     // les résultats d'un autre appareil que cet appareil n'a pas encore en local.
-    await fetchAndMergeResultsFromSheet(classe);
+    // Exception : après un "recommencer" explicite, on saute cette étape (skipPull) pour
+    // que la remise à zéro voulue par l'utilisateur s'envoie vraiment, sans être restaurée.
+    if(!skipPull) await fetchAndMergeResultsFromSheet(classe);
     const cl = STATE.classes[classe];
     const columns = buildResultColumns(getNiveau(classe));
     const rows = buildResultRows(classe).sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
@@ -956,7 +958,7 @@ function resetAllResultsForTest(classe, testKey){
   }
   saveState();
   renderClassTab(classe);
-  syncToSheet(classe);
+  syncToSheet(classe, true);
 }
 
 /* ===================== LUC LEGER ===================== */
