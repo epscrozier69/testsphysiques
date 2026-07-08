@@ -422,11 +422,17 @@ function bgLight(colorVar){ return `background:var(${colorVar}-light);`; }
 function sexeIcon(sexe){
   return sexe==='F' ? `<span class="sexe-icon sexe-F" title="Fille">♀</span>` : `<span class="sexe-icon sexe-M" title="Garçon">♂</span>`;
 }
+function clearResult(student, testKey){
+  // Marqueur non-null distinct de "jamais testé" : une synchronisation ne doit
+  // jamais réinterpréter un effacement volontaire comme une simple case vide
+  // à recompléter depuis le Sheet (sinon l'ancienne valeur serait restaurée).
+  student.results[testKey] = {cleared:true};
+}
 function resetResult(classe, studentId, testKey){
   const s = STATE.classes[classe].students.find(x=>x.id===studentId);
   if(!s) return;
   if(!confirm('Effacer ce résultat pour le recommencer ?')) return;
-  s.results[testKey] = null;
+  clearResult(s, testKey);
   saveState();
   renderClassTab(classe);
   syncToSheet(classe, true);
@@ -566,6 +572,17 @@ async function doSyncToSheet(classe, skipPull){
     setSyncStatus(classe, 'Synchro hors ligne (résultats conservés localement)');
   }
 }
+function normalizeLegacyResults(results){
+  if(!results) return results;
+  ['longueur','detenteHorizontale'].forEach(testKey=>{
+    const r = results[testKey];
+    if(r && r.valeur==null && r.distance!=null){
+      r.valeur = r.distance;
+      delete r.distance;
+    }
+  });
+  return results;
+}
 async function fetchAndMergeResultsFromSheet(classe){
   const cl = STATE.classes[classe];
   if(!cl) return {ok:false, error:'Classe inconnue'};
@@ -585,7 +602,7 @@ async function fetchAndMergeResultsFromSheet(classe){
     const student = cl.students.find(s=>s.nomPrenom===nomPrenom && (sexe==null || s.sexe===sexe));
     if(student && row[idxRaw]){
       try{
-        const incoming = JSON.parse(row[idxRaw]);
+        const incoming = normalizeLegacyResults(JSON.parse(row[idxRaw]));
         if(!student.results) student.results = {};
         let changed = false;
         Object.keys(incoming||{}).forEach(testKey=>{
@@ -944,7 +961,7 @@ function resetAllResultsForTest(classe, testKey){
   const label = def ? def.label : testKey;
   if(!confirm(`Réinitialiser TOUS les résultats de « ${label} » pour la classe ${classe} ? Cette action est irréversible.`)) return;
   const cl = STATE.classes[classe];
-  cl.students.forEach(s=>{ s.results[testKey] = null; });
+  cl.students.forEach(s=>{ clearResult(s, testKey); });
   if(testKey==='lucLeger' || testKey==='demiCooper'){
     cl.runState = {running:false};
     if(liveTimer){ clearInterval(liveTimer); liveTimer=null; }
@@ -1086,7 +1103,7 @@ function groupCheckboxes(classe, studentId, group){
 function toggleAbsentLL(classe, studentId, checked){
   const s = STATE.classes[classe].students.find(s=>s.id===studentId);
   if(checked) s.results.lucLeger = {absent:true, done:false};
-  else s.results.lucLeger = null;
+  else clearResult(s, 'lucLeger');
   saveState();
   checkAutoStop(classe);
   renderClassTab(classe);
@@ -1236,7 +1253,7 @@ function toggleAbsentSimple(classe, testKey, idx, checked){
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const student = students[idx];
   if(checked) student.results[testKey] = {absent:true};
-  else student.results[testKey] = null;
+  else clearResult(student, testKey);
   saveState();
   renderClassTab(classe);
   syncToSheet(classe);
@@ -1603,7 +1620,7 @@ function incrementTour(classe, studentId){
 function toggleAbsentDemiCooper(classe, studentId, checked){
   const s = STATE.classes[classe].students.find(s=>s.id===studentId);
   if(checked) s.results.demiCooper = {absent:true, done:false, tours:0};
-  else s.results.demiCooper = null;
+  else clearResult(s, 'demiCooper');
   saveState();
   renderClassTab(classe);
   syncToSheet(classe);
@@ -1755,7 +1772,7 @@ function toggleAbsentVitesse40(classe, studentId, checked){
   const s = cl.students.find(x=>x.id===studentId);
   if(!s) return;
   if(checked) s.results.vitesse40 = {absent:true};
-  else s.results.vitesse40 = null;
+  else clearResult(s, 'vitesse40');
   saveState();
   renderClassTab(classe);
   syncToSheet(classe);
