@@ -746,6 +746,14 @@ function finalizeImport(classeCible, students){
   renderClassTab(classeCible);
   switchTab('classe-'+slug(classeCible));
   closeImportModal();
+  if(APPS_SCRIPT_URL){
+    fetchAndMergeResultsFromSheet(classeCible).then(({ok})=>{
+      if(ok){
+        renderClassTab(classeCible);
+        setSyncStatus(classeCible, 'Résultats existants chargés automatiquement depuis le Sheet.');
+      }
+    }).catch(err=>console.warn('Auto-chargement après import impossible', err));
+  }
 }
 function mergeStudents(existingStudents, newStudents){
   const existingByKey = new Map(existingStudents.map(s=>[s.nomPrenom+'|'+s.sexe, s]));
