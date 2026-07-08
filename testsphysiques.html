@@ -457,11 +457,11 @@ function niveauFromNote(note){
 const BAREME_COLUMNS = {
   '6eme': {
     endurance:       {raw:1,  g:2,  f:3,  higherIsBetter:true},
-    vitesse:         {raw:4,  g:5,  f:6,  higherIsBetter:false},
-    longueur:        {raw:7,  g:8,  f:9,  higherIsBetter:true},
-    detenteVerticale:{raw:10, g:11, f:12, higherIsBetter:true},
-    pompes:          {raw:13, g:14, f:15, higherIsBetter:true},
-    souplesse:       {raw:17, g:18, f:19, higherIsBetter:true}
+    vitesse:         {raw:6,  g:7,  f:8,  higherIsBetter:false},
+    longueur:        {raw:9,  g:10, f:11, higherIsBetter:true},
+    detenteVerticale:{raw:12, g:13, f:14, higherIsBetter:true},
+    pompes:          {raw:15, g:16, f:17, higherIsBetter:true},
+    souplesse:       {raw:19, g:20, f:21, higherIsBetter:true}
   },
   '5eme': {
     endurance:          {raw:1,  g:2,  f:3,  higherIsBetter:true},
@@ -523,15 +523,21 @@ async function doSyncToSheet(classe){
   if(!APPS_SCRIPT_URL || !STATE.classes[classe]) return;
   setSyncStatus(classe, 'Synchronisation en cours...');
   try{
+    const cl = STATE.classes[classe];
     const columns = buildResultColumns(getNiveau(classe));
     const rows = buildResultRows(classe).sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
     const payload = {
       classe,
-      header: columns.map(c=>c.label),
-      rows: rows.map(r=>columns.map(c=>{
-        const v = r[c.key];
-        return (v===undefined||v===null) ? '' : v;
-      }))
+      header: [...columns.map(c=>c.label), 'DonneesBrutes'],
+      rows: rows.map(r=>{
+        const vals = columns.map(c=>{
+          const v = r[c.key];
+          return (v===undefined||v===null) ? '' : v;
+        });
+        const student = cl.students.find(s=>s.nomPrenom===r.nomPrenom && s.sexe===r.sexe);
+        vals.push(JSON.stringify(student ? student.results : {}));
+        return vals;
+      })
     };
     await fetch(APPS_SCRIPT_URL, {
       method:'POST',
@@ -542,6 +548,59 @@ async function doSyncToSheet(classe){
   }catch(err){
     console.warn('Synchro Google Sheet impossible', err);
     setSyncStatus(classe, 'Synchro hors ligne (résultats conservés localement)');
+  }
+}
+async function fetchAndMergeResultsFromSheet(classe){
+  const cl = STATE.classes[classe];
+  if(!cl) return {ok:false, error:'Classe inconnue'};
+  const res = await fetch(`${APPS_SCRIPT_URL}?classe=${encodeURIComponent(classe)}`, {cache:'no-store'});
+  if(!res.ok) return {ok:false, error:'HTTP '+res.status};
+  const data = await res.json();
+  if(!data.ok) return {ok:false, error:data.error||'Erreur inconnue'};
+  if(!data.header || data.header.length===0) return {ok:true, count:0};
+  const idxNom = data.header.indexOf('Nom Prénom');
+  const idxSexe = data.header.indexOf('Sexe');
+  const idxRaw = data.header.indexOf('DonneesBrutes');
+  if(idxNom===-1 || idxRaw===-1) return {ok:false, error:'Colonnes attendues introuvables (le script Apps Script a-t-il été redéployé ?).'};
+  let count = 0;
+  data.rows.forEach(row=>{
+    const nomPrenom = row[idxNom];
+    const sexe = idxSexe!==-1 ? row[idxSexe] : null;
+    const student = cl.students.find(s=>s.nomPrenom===nomPrenom && (sexe==null || s.sexe===sexe));
+    if(student && row[idxRaw]){
+      try{ student.results = JSON.parse(row[idxRaw]); count++; }catch(e){ /* ligne illisible, ignorée */ }
+    }
+  });
+  saveState();
+  return {ok:true, count};
+}
+async function chargerResultatsDepuisSheet(classe){
+  if(!APPS_SCRIPT_URL){ alert("La synchronisation Google Sheet n'est pas configurée."); return; }
+  if(!STATE.classes[classe]) return;
+  if(!confirm(`Charger les résultats déjà enregistrés dans le Google Sheet pour ${classe} ? Cela remplacera les résultats actuellement affichés sur cet appareil pour les élèves concernés.`)) return;
+  setSyncStatus(classe, 'Chargement depuis le Google Sheet...');
+  try{
+    const {ok, count, error} = await fetchAndMergeResultsFromSheet(classe);
+    if(!ok) throw new Error(error);
+    renderClassTab(classe);
+    setSyncStatus(classe, `${count} élève(s) mis à jour depuis le Google Sheet.`);
+  }catch(err){
+    console.warn('Chargement depuis Google Sheet impossible', err);
+    setSyncStatus(classe, "Erreur lors du chargement depuis le Google Sheet.");
+  }
+}
+async function autoLoadAllFromSheet(){
+  if(!APPS_SCRIPT_URL) return;
+  for(const classe of STATE.order){
+    try{
+      const {ok} = await fetchAndMergeResultsFromSheet(classe);
+      if(ok){
+        renderClassTab(classe);
+        setSyncStatus(classe, 'Résultats à jour (chargés automatiquement depuis le Sheet à l\'ouverture).');
+      }
+    }catch(err){
+      console.warn('Auto-chargement depuis le Sheet impossible pour', classe, err);
+    }
   }
 }
 function setSyncStatus(classe, text){
@@ -831,7 +890,7 @@ function renderClassTab(classe){
       </div>
       ${GROUP_TESTS.includes(cl.testMode) ? `<div class="row-flex"><span class="badge groupA">Groupe A : ${nbA} élève(s)</span><span class="badge groupB">Groupe B : ${nbB} élève(s)</span></div>` : ''}
       ${APPS_SCRIPT_URL
-        ? `<p class="help-text">📤 <span id="sync-status-${slug(classe)}">Pas encore synchronisé</span> — <a href="#" onclick="doSyncToSheet('${escapeHtml(classe)}'); return false;">Synchroniser maintenant</a></p>`
+        ? `<p class="help-text">📤 <span id="sync-status-${slug(classe)}">Pas encore synchronisé</span> — <a href="#" onclick="doSyncToSheet('${escapeHtml(classe)}'); return false;">Synchroniser maintenant</a> · <a href="#" onclick="chargerResultatsDepuisSheet('${escapeHtml(classe)}'); return false;">⬇️ Charger depuis le Sheet (autre appareil)</a></p>`
         : `<p class="help-text">📤 Écriture automatique vers Google Sheet non configurée (voir Apps Script à déployer).</p>`}
     </div>
     <div id="testContent-${slug(classe)}"></div>
@@ -962,7 +1021,7 @@ async function editLucLegerPalier(classe, studentId, palierStr){
   s.results.lucLeger.note = null;
   saveState();
   renderClassTab(classe);
-  const note = await computeNote(classe, 'endurance', entry.vitesse, s.sexe);
+  const note = await computeNote(classe, 'endurance', palier, s.sexe);
   if(s.results.lucLeger && s.results.lucLeger.palier===palier){
     s.results.lucLeger.note = note;
     saveState();
@@ -1046,7 +1105,7 @@ async function recordLucLegerResult(classe, studentId){
   saveState();
   checkAutoStop(classe);
   renderClassTab(classe);
-  const note = await computeNote(classe, 'endurance', r.vitesse, student.sexe);
+  const note = await computeNote(classe, 'endurance', r.palier, student.sexe);
   if(student.results.lucLeger && student.results.lucLeger.done && student.results.lucLeger.temps===elapsed){
     student.results.lucLeger.note = note;
     saveState();
@@ -1252,9 +1311,10 @@ function renderVitesse(classe){
         <div class="chrono-display" id="vChronoDisplay-${slug(classe)}">0.00 s</div>
         ${!running
           ? `<button class="btn-primary btn-xl" ${selIdx==null?'disabled':''} onclick="startVitesseChrono('${escapeHtml(classe)}')">▶️ Démarrer</button>`
-          : `<button class="btn-danger btn-xl" onclick="stopVitesseChrono('${escapeHtml(classe)}')">⏹️ Arrêter</button>`}
+          : `<button class="btn-danger btn-xl" onclick="stopVitesseChrono('${escapeHtml(classe)}')">⏹️ Arrêter</button>
+             <button class="btn-secondary btn-xl" onclick="restartVitesseChrono('${escapeHtml(classe)}')">🔄 Recommencer (faux départ)</button>`}
       </div>
-      <p class="help-text">Cliquez sur un élève pour le sélectionner, puis « Démarrer » lance le chrono. « Arrêter » enregistre le temps et sélectionne automatiquement l'élève suivant.</p>
+      <p class="help-text">Cliquez sur un élève pour le sélectionner, puis « Démarrer » lance le chrono. « Arrêter » enregistre le temps et sélectionne automatiquement l'élève suivant. En cas de faux départ, « Recommencer » relance le chrono à zéro sans enregistrer.</p>
     </div>
     ${twoColumnBlocks(thead, rowsArr, 7)}
     <div class="card">${classAverageHtml(classe, 'vitesse')}</div>`;
@@ -1270,6 +1330,11 @@ function startVitesseChrono(classe){
   if(vitesseChrono.studentIdx==null) return;
   vitesseChrono.startTs = performance.now();
   vitesseChrono.interval = setInterval(()=>updateVitesseChronoDisplay(classe), 30);
+  renderClassTab(classe);
+}
+function restartVitesseChrono(classe){
+  if(vitesseChrono.interval){ clearInterval(vitesseChrono.interval); vitesseChrono.interval=null; }
+  vitesseChrono.startTs = null;
   renderClassTab(classe);
 }
 function updateVitesseChronoDisplay(classe){
@@ -1535,9 +1600,10 @@ function renderVitesse40(classe){
           : `<button class="btn-success" ${vitesse40Heat.stamps.length>=3?'disabled':''} onclick="stampVitesse40('${escapeHtml(classe)}')">🏁 Arrivée (${vitesse40Heat.stamps.length}/3)</button>
              <button class="btn-danger" onclick="stopVitesse40Heat('${escapeHtml(classe)}')">⏹️ Arrêter</button>
              <div class="chrono-display" id="v40-live-${slug(classe)}">0.00 s</div>`}
+        ${(running || pending>0) ? `<button class="btn-secondary" onclick="restartVitesse40Heat('${escapeHtml(classe)}')">🔄 Recommencer (faux départ)</button>` : ''}
       </div>
       ${stampsHtml?`<div class="row-flex" style="margin-top:6px;">${stampsHtml}</div>`:''}
-      <p class="help-text">${pending>0 ? `Cliquez sur ${pending} élève(s) dans la liste ci-dessous, dans l'ordre exact d'arrivée, pour leur attribuer un temps.` : "Cliquez « Départ commun », puis « Arrivée » à chaque franchissement de ligne (jusqu'à 3 coureurs)."}</p>
+      <p class="help-text">${pending>0 ? `Cliquez sur ${pending} élève(s) dans la liste ci-dessous, dans l'ordre exact d'arrivée, pour leur attribuer un temps.` : "Cliquez « Départ commun », puis « Arrivée » à chaque franchissement de ligne (jusqu'à 3 coureurs). En cas de faux départ, « Recommencer » annule la course en cours."}</p>
     </div>
     <div id="v40-roster-${slug(classe)}"></div>
   `;
@@ -1574,6 +1640,15 @@ function stampVitesse40(classe){
 function stopVitesse40Heat(classe){
   vitesse40Heat.running = false;
   if(liveTimer){ clearInterval(liveTimer); liveTimer=null; }
+  renderClassTab(classe);
+}
+function restartVitesse40Heat(classe){
+  if(vitesse40Heat.classe!==classe) return;
+  if(liveTimer){ clearInterval(liveTimer); liveTimer=null; }
+  vitesse40Heat.running = false;
+  vitesse40Heat.startTs = null;
+  vitesse40Heat.stamps = [];
+  vitesse40Heat.assignedCount = 0;
   renderClassTab(classe);
 }
 async function assignVitesse40(classe, studentId){
@@ -1975,6 +2050,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   } else {
     switchTab('resultats');
   }
+  autoLoadAllFromSheet();
 });
 </script>
 </body>
