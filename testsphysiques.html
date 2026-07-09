@@ -173,6 +173,18 @@ thead th.sticky-col{background:#334155;z-index:3;}
 .rank-line{white-space:nowrap;line-height:1.3;}
 .rank-line-sexe{color:var(--muted);font-size:.85em;}
 .btn-xl{font-size:1.3rem;padding:18px 32px;min-height:64px;border-radius:14px;}
+.numkeypad{
+  position:fixed;left:0;right:0;bottom:0;z-index:200;
+  background:#1e293b;padding:12px;box-shadow:0 -4px 16px rgba(0,0,0,.35);
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+}
+.numkeypad.hidden{display:none;}
+.numkeypad-grid{display:grid;grid-template-columns:repeat(3,72px);gap:8px;}
+.numkeypad-grid button{
+  font-size:1.5rem;font-weight:800;padding:0;height:56px;width:72px;
+  background:#334155;color:#fff;border-radius:10px;
+}
+.numkeypad-grid button:active{background:#475569;}
 .dc-tile{
   display:inline-block;padding:8px 14px;border-radius:10px;
   background:var(--primary);color:#fff;font-weight:800;font-size:.95rem;
@@ -277,6 +289,27 @@ footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:
 </div>
 
 <footer class="app-footer">Collège Joliot Curie — Outil de suivi des tests physiques</footer>
+
+<div id="numKeypad" class="numkeypad hidden">
+  <div class="numkeypad-grid">
+    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('7')">7</button>
+    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('8')">8</button>
+    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('9')">9</button>
+    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('4')">4</button>
+    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('5')">5</button>
+    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('6')">6</button>
+    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('1')">1</button>
+    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('2')">2</button>
+    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('3')">3</button>
+    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('.')">,</button>
+    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('0')">0</button>
+    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('back')">⌫</button>
+  </div>
+  <div class="row-flex" style="width:100%;justify-content:center;">
+    <button type="button" class="btn-secondary" onmousedown="event.preventDefault()" onclick="closeNumericKeypad()">Fermer</button>
+    <button type="button" class="btn-primary" onmousedown="event.preventDefault()" onclick="numKeypadValidate()">✓ Valider</button>
+  </div>
+</div>
 
 <script>
 /* ===================== CONSTANTES ===================== */
@@ -421,6 +454,25 @@ function notePill(note){
 function bgLight(colorVar){ return `background:var(${colorVar}-light);`; }
 function sexeIcon(sexe){
   return sexe==='F' ? `<span class="sexe-icon sexe-F" title="Fille">♀</span>` : `<span class="sexe-icon sexe-M" title="Garçon">♂</span>`;
+}
+let activeNumInput = null;
+function openNumericKeypad(inputEl){
+  activeNumInput = inputEl;
+  document.getElementById('numKeypad').classList.remove('hidden');
+}
+function numKeypadPress(char){
+  if(!activeNumInput) return;
+  if(char==='back') activeNumInput.value = activeNumInput.value.slice(0,-1);
+  else activeNumInput.value += char;
+}
+function numKeypadValidate(){
+  if(!activeNumInput) return;
+  activeNumInput.dispatchEvent(new Event('change', {bubbles:true}));
+  closeNumericKeypad();
+}
+function closeNumericKeypad(){
+  document.getElementById('numKeypad').classList.add('hidden');
+  activeNumInput = null;
 }
 function clearResult(student, testKey){
   // Marqueur non-null distinct de "jamais testé" : une synchronisation ne doit
@@ -625,8 +677,37 @@ async function fetchAndMergeResultsFromSheet(classe){
   saveState();
   return {ok:true, count};
 }
+async function importMissingClasses(){
+  if(!APPS_SCRIPT_URL) return;
+  try{
+    const res = await fetch(`${APPS_SCRIPT_URL}?list=1`, {cache:'no-store'});
+    if(!res.ok) return;
+    const data = await res.json();
+    if(!data.ok || !data.classes) return;
+    const missing = data.classes.filter(c=>c && !STATE.order.includes(c));
+    if(missing.length===0) return;
+    const rosterRes = await fetch(CSV_URL, {cache:'no-store'});
+    if(!rosterRes.ok) return;
+    const rows = parseCSV(await rosterRes.text());
+    if(rows.length<2) return;
+    const idx = parseHeaderIndices(rows);
+    for(const classeCible of missing){
+      const students = buildStudentsFromRows(rows, classeCible, idx);
+      if(students.length===0) continue;
+      STATE.classes[classeCible] = { students, testMode:null, activeGroup:'A', runState:{running:false} };
+      STATE.order.push(classeCible);
+      await fetchAndMergeResultsFromSheet(classeCible);
+    }
+    saveState();
+    renderMainTabs();
+    STATE.order.forEach(renderClassTab);
+  }catch(err){
+    console.warn('Import automatique des classes manquantes impossible', err);
+  }
+}
 async function autoLoadAllFromSheet(){
   if(!APPS_SCRIPT_URL) return;
+  await importMissingClasses();
   for(const classe of STATE.order){
     try{
       const {ok} = await fetchAndMergeResultsFromSheet(classe);
@@ -639,6 +720,7 @@ async function autoLoadAllFromSheet(){
 async function synchroniserTout(){
   if(!APPS_SCRIPT_URL) return;
   setSyncStatus(null, 'Synchronisation en cours...');
+  await importMissingClasses();
   let nbErreurs = 0;
   for(const classe of STATE.order){
     try{
@@ -1029,7 +1111,7 @@ function renderLLGroupColumn(classe, group, ranks){
         <select onclick="event.stopPropagation()" onchange="editLucLegerPalier('${escapeHtml(classe)}','${s.id}',this.value)">
           ${PALIER_SCHEDULE.map(p=>`<option value="${p.palier}" ${r.palier===p.palier?'selected':''}>Palier ${p.palier}</option>`).join('')}
         </select>
-        <input type="number" step="1" value="${Math.round(r.temps)}" style="width:50px" onclick="event.stopPropagation()" onchange="editLucLegerTemps('${escapeHtml(classe)}','${s.id}',this.value)"> s`;
+        <input type="number" inputmode="none" step="1" value="${Math.round(r.temps)}" style="width:50px" onclick="event.stopPropagation()" onfocus="event.stopPropagation();openNumericKeypad(this)" onchange="editLucLegerTemps('${escapeHtml(classe)}','${s.id}',this.value)"> s`;
     } else if(r && r.absent){
       resultCell = '—';
     } else {
@@ -1208,8 +1290,9 @@ function renderSimpleNumericTest(classe, testKey){
       <tr class="${r&&r.absent?'row-absent':''}" style="${bgLight(config.couleur)}">
         <td class="row-clickable" onclick="focusSimpleInput('${slug(classe)}','${testKey}',${i})">${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
         <td>
-          <input type="number" step="${config.step}" id="si-input-${testKey}-${slug(classe)}-${i}" value="${r&&r.valeur!=null?r.valeur:''}" placeholder="${config.unite}"
+          <input type="number" inputmode="none" step="${config.step}" id="si-input-${testKey}-${slug(classe)}-${i}" value="${r&&r.valeur!=null?r.valeur:''}" placeholder="${config.unite}"
             ${r&&r.absent?'disabled':''}
+            onfocus="openNumericKeypad(this)"
             onkeydown="if(event.key==='Enter'){ event.preventDefault(); validerSimpleValeur('${escapeHtml(classe)}','${testKey}',${i}); }"
             onchange="validerSimpleValeur('${escapeHtml(classe)}','${testKey}',${i})" style="width:70px;">
         </td>
@@ -1347,8 +1430,9 @@ function renderVitesse(classe){
       <tr class="${r&&r.absent?'row-absent':''} ${isSelected?'row-done':''} row-clickable" style="${bgLight('--col-5')}" onclick="selectVitesseStudent('${escapeHtml(classe)}',${i})">
         <td>${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)} ${isSelected?'👉':''}</td>
         <td>
-          <input type="number" step="0.01" value="${r&&r.temps!=null?r.temps:''}" placeholder="sec" style="width:70px;"
+          <input type="number" inputmode="none" step="0.01" value="${r&&r.temps!=null?r.temps:''}" placeholder="sec" style="width:70px;"
             onclick="event.stopPropagation()"
+            onfocus="event.stopPropagation();openNumericKeypad(this)"
             ${r&&r.absent?'disabled':''}
             onchange="setVitesseManuel('${escapeHtml(classe)}',${i},this.value)">
         </td>
@@ -1494,8 +1578,8 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
     if(done){
       niv = niveauFromNote(r.note);
       toursCell = `
-        <input type="number" value="${r.tours}" style="width:45px" onclick="event.stopPropagation()" onchange="editDemiCooperTours('${escapeHtml(classe)}','${s.id}',this.value)"> t. +
-        <input type="number" step="0.1" value="${r.distanceSupp||0}" style="width:55px" onclick="event.stopPropagation()" onchange="editDemiCooperSupp('${escapeHtml(classe)}','${s.id}',this.value)"> m`;
+        <input type="number" inputmode="none" value="${r.tours}" style="width:45px" onclick="event.stopPropagation()" onfocus="event.stopPropagation();openNumericKeypad(this)" onchange="editDemiCooperTours('${escapeHtml(classe)}','${s.id}',this.value)"> t. +
+        <input type="number" inputmode="none" step="0.1" value="${r.distanceSupp||0}" style="width:55px" onclick="event.stopPropagation()" onfocus="event.stopPropagation();openNumericKeypad(this)" onchange="editDemiCooperSupp('${escapeHtml(classe)}','${s.id}',this.value)"> m`;
       distanceTotale = `${r.valeur} m`;
     } else if(absent){
       toursCell = '—';
@@ -1741,7 +1825,7 @@ function renderVitesse40Roster(classe, students){
       : `${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}`;
     let valeurCell;
     if(r && r.temps!=null){
-      valeurCell = `<input type="number" step="0.01" value="${r.temps}" style="width:70px;" ${r.absent?'disabled':''} onclick="event.stopPropagation()" onchange="setVitesse40Manuel('${escapeHtml(classe)}','${s.id}',this.value)">`;
+      valeurCell = `<input type="number" inputmode="none" step="0.01" value="${r.temps}" style="width:70px;" ${r.absent?'disabled':''} onclick="event.stopPropagation()" onfocus="event.stopPropagation();openNumericKeypad(this)" onchange="setVitesse40Manuel('${escapeHtml(classe)}','${s.id}',this.value)">`;
     } else {
       valeurCell = '—';
     }
