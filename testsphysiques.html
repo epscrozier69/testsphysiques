@@ -178,17 +178,21 @@ thead th.sticky-col{background:#334155;z-index:3;}
   display:flex;flex-direction:column;align-items:center;gap:10px;
 }
 .numkeypad.hidden{display:none;}
+.numkeypad-info{color:#fff;font-weight:700;font-size:.95rem;min-height:1.2em;}
 .numkeypad-grid{display:grid;grid-template-columns:repeat(3,72px);gap:8px;}
 .numkeypad-grid button{
   font-size:1.5rem;font-weight:800;padding:0;height:56px;width:72px;
   background:#334155;color:#fff;border-radius:10px;
+  touch-action:manipulation;
 }
 .numkeypad-grid button:active{background:#475569;}
+.numkeypad .btn-secondary,.numkeypad .btn-primary{touch-action:manipulation;}
 @media (min-width:700px){
-  .numkeypad{padding:20px;gap:16px;}
-  .numkeypad-grid{grid-template-columns:repeat(3,110px);gap:14px;}
-  .numkeypad-grid button{height:90px;width:110px;font-size:2.2rem;border-radius:14px;}
-  .numkeypad .btn-secondary,.numkeypad .btn-primary{font-size:1.2rem;padding:16px 28px;min-height:56px;}
+  .numkeypad{padding:14px;gap:12px;}
+  .numkeypad-info{font-size:1.1rem;}
+  .numkeypad-grid{grid-template-columns:repeat(3,90px);gap:10px;}
+  .numkeypad-grid button{height:72px;width:90px;font-size:1.8rem;border-radius:12px;}
+  .numkeypad .btn-secondary,.numkeypad .btn-primary{font-size:1.05rem;padding:14px 24px;min-height:48px;}
 }
 .dc-tile{
   display:inline-block;padding:8px 14px;border-radius:10px;
@@ -310,6 +314,7 @@ footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:
 <footer class="app-footer">Collège Joliot Curie — Outil de suivi des tests physiques</footer>
 
 <div id="numKeypad" class="numkeypad hidden">
+  <div id="numKeypadInfo" class="numkeypad-info"></div>
   <div class="numkeypad-grid">
     <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('7')">7</button>
     <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('8')">8</button>
@@ -478,6 +483,7 @@ let activeNumInput = null;
 function openNumericKeypad(inputEl){
   activeNumInput = inputEl;
   document.getElementById('numKeypad').classList.remove('hidden');
+  updateNumKeypadInfo();
 }
 function numKeypadPress(char){
   if(!activeNumInput) return;
@@ -486,12 +492,34 @@ function numKeypadPress(char){
 }
 function numKeypadValidate(){
   if(!activeNumInput) return;
+  const shouldAdvance = activeNumInput.dataset.advance==='true';
   activeNumInput.dispatchEvent(new Event('change', {bubbles:true}));
-  closeNumericKeypad();
+  if(!shouldAdvance){
+    closeNumericKeypad();
+    return;
+  }
+  // Les tests "valeur simple" (longueur/détente/pompes) font avancer le focus vers
+  // l'élève suivant (via requestAnimationFrame, après le redessin du tableau) : on
+  // vérifie ici si ça a fonctionné pour afficher le nom du prochain élève, ou pour
+  // signaler la fin de liste plutôt que de rester silencieux.
+  requestAnimationFrame(()=>{
+    if(activeNumInput && activeNumInput.isConnected){
+      updateNumKeypadInfo();
+    } else {
+      updateNumKeypadInfo('✅ Dernier élève de la liste — terminé');
+      setTimeout(closeNumericKeypad, 1000);
+    }
+  });
+}
+function updateNumKeypadInfo(msg){
+  const el = document.getElementById('numKeypadInfo');
+  if(!el) return;
+  el.textContent = msg!==undefined ? msg : (activeNumInput && activeNumInput.dataset.student ? ('Élève : '+activeNumInput.dataset.student) : '');
 }
 function closeNumericKeypad(){
   document.getElementById('numKeypad').classList.add('hidden');
   activeNumInput = null;
+  updateNumKeypadInfo();
 }
 function clearResult(student, testKey){
   // Marqueur non-null distinct de "jamais testé" : une synchronisation ne doit
@@ -1388,6 +1416,7 @@ function renderSimpleNumericTest(classe, testKey){
         <td class="row-clickable" onclick="focusSimpleInput('${slug(classe)}','${testKey}',${i})">${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
         <td>
           <input type="number" inputmode="none" step="${config.step}" id="si-input-${testKey}-${slug(classe)}-${i}" value="${r&&r.valeur!=null?r.valeur:''}" placeholder="${config.unite}"
+            data-advance="true" data-student="${escapeHtml(s.nomPrenom)}"
             ${r&&r.absent?'disabled':''}
             onfocus="openNumericKeypad(this)"
             onkeydown="if(event.key==='Enter'){ event.preventDefault(); validerSimpleValeur('${escapeHtml(classe)}','${testKey}',${i}); }"
