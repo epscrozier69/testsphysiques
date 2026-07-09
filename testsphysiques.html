@@ -64,15 +64,13 @@ header.app-header p{
 }
 nav.tabs{
   display:flex;
+  flex-wrap:wrap;
   gap:6px;
-  overflow-x:auto;
   padding:6px 14px;
   background:#fff;
   border-bottom:2px solid var(--border);
   position:sticky;top:52px;z-index:49;
-  -webkit-overflow-scrolling:touch;
 }
-nav.tabs::-webkit-scrollbar{height:6px;}
 .tab-btn{
   border:none;
   background:#eef2ff;
@@ -88,7 +86,7 @@ nav.tabs::-webkit-scrollbar{height:6px;}
 }
 .tab-btn:hover{background:#dbe4ff;}
 .tab-btn.active{background:var(--primary);color:#fff;}
-.tab-btn.tab-delete-open{background:#fee2e2;color:#b91c1c;border:1px dashed #dc2626;}
+.tab-btn.tab-delete-open{background:#fee2e2;color:#b91c1c;border:1px dashed #dc2626;padding:6px 10px;font-size:.75rem;min-height:32px;}
 .tab-btn.tab-add{background:#f0fdf4;color:#166534;border:1px dashed #16a34a;}
 main{padding:10px 16px;max-width:1400px;margin:0 auto;}
 .tab-panel{display:none;}
@@ -995,7 +993,8 @@ function renderMainTabs(){
 
   const delOpenBtn = document.createElement('button');
   delOpenBtn.className='tab-btn tab-delete-open';
-  delOpenBtn.textContent='🗑️ Supprimer une classe';
+  delOpenBtn.textContent='🗑️ Suppr.';
+  delOpenBtn.title='Supprimer une classe';
   delOpenBtn.onclick = openDeleteClassModal;
   nav.appendChild(delOpenBtn);
 
