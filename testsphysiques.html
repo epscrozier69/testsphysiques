@@ -426,7 +426,7 @@ function clearResult(student, testKey){
   // Marqueur non-null distinct de "jamais testé" : une synchronisation ne doit
   // jamais réinterpréter un effacement volontaire comme une simple case vide
   // à recompléter depuis le Sheet (sinon l'ancienne valeur serait restaurée).
-  student.results[testKey] = {cleared:true};
+  student.results[testKey] = {cleared:true, _ts:Date.now()};
 }
 function resetResult(classe, studentId, testKey){
   const s = STATE.classes[classe].students.find(x=>x.id===studentId);
@@ -435,7 +435,7 @@ function resetResult(classe, studentId, testKey){
   clearResult(s, testKey);
   saveState();
   renderClassTab(classe);
-  syncToSheet(classe, true);
+  syncToSheet(classe);
 }
 function resetBtn(classe, studentId, testKey){
   return `<button class="reset-icon" onclick="event.stopPropagation();resetResult('${escapeHtml(classe)}','${studentId}','${testKey}')" title="Recommencer">↺</button>`;
@@ -529,21 +529,19 @@ function lookupNote(table, valeur, sexe, higherIsBetter){
   }
 }
 let syncTimers = {};
-function syncToSheet(classe, skipPull){
+function syncToSheet(classe){
   if(!APPS_SCRIPT_URL) return;
   if(syncTimers[classe]) clearTimeout(syncTimers[classe]);
-  syncTimers[classe] = setTimeout(()=>doSyncToSheet(classe, skipPull), 1200);
+  syncTimers[classe] = setTimeout(()=>doSyncToSheet(classe), 1200);
 }
-async function doSyncToSheet(classe, skipPull){
+async function doSyncToSheet(classe){
   if(!APPS_SCRIPT_URL || !STATE.classes[classe]) return;
   setSyncStatus(classe, 'Synchronisation en cours...');
   try{
-    // On récupère d'abord ce qui existe déjà sur le Sheet (fusion additive, sans jamais
-    // écraser une donnée locale déjà présente) avant d'envoyer, pour ne jamais régresser
-    // les résultats d'un autre appareil que cet appareil n'a pas encore en local.
-    // Exception : après un "recommencer" explicite, on saute cette étape (skipPull) pour
-    // que la remise à zéro voulue par l'utilisateur s'envoie vraiment, sans être restaurée.
-    if(!skipPull) await fetchAndMergeResultsFromSheet(classe);
+    // On récupère d'abord ce qui existe déjà sur le Sheet et on ne garde que le plus
+    // récent (comparaison par horodatage _ts, champ par champ) avant d'envoyer : ni cet
+    // appareil ni un autre ne peut donc écraser un résultat plus frais avec une donnée périmée.
+    await fetchAndMergeResultsFromSheet(classe);
     const cl = STATE.classes[classe];
     const columns = buildResultColumns(getNiveau(classe));
     const rows = buildResultRows(classe).sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
@@ -607,9 +605,16 @@ async function fetchAndMergeResultsFromSheet(classe){
         let changed = false;
         Object.keys(incoming||{}).forEach(testKey=>{
           const localVal = student.results[testKey];
+          const incomingVal = incoming[testKey];
+          if(incomingVal==null) return;
+          const localTs = (localVal && localVal._ts) || 0;
+          const incomingTs = incomingVal._ts || 0;
+          // On adopte la donnée du Sheet seulement si elle est plus récente que la donnée
+          // locale (ou si on n'a localement rien du tout) : jamais l'inverse, pour ne pas
+          // qu'un appareil avec des données périmées écrase un résultat plus frais.
           const isLocalEmpty = localVal===undefined || localVal===null;
-          if(isLocalEmpty && incoming[testKey]!=null){
-            student.results[testKey] = incoming[testKey];
+          if(isLocalEmpty || incomingTs>localTs){
+            student.results[testKey] = incomingVal;
             changed = true;
           }
         });
@@ -975,7 +980,7 @@ function resetAllResultsForTest(classe, testKey){
   }
   saveState();
   renderClassTab(classe);
-  syncToSheet(classe, true);
+  syncToSheet(classe);
 }
 
 /* ===================== LUC LEGER ===================== */
@@ -1068,6 +1073,7 @@ async function editLucLegerPalier(classe, studentId, palierStr){
   s.results.lucLeger.palier = palier;
   s.results.lucLeger.vitesse = entry.vitesse;
   s.results.lucLeger.note = null;
+  s.results.lucLeger._ts = Date.now();
   saveState();
   renderClassTab(classe);
   const note = await computeNote(classe, 'endurance', palier, s.sexe);
@@ -1085,6 +1091,7 @@ function editLucLegerTemps(classe, studentId, tempsStr){
   const s = cl.students.find(x=>x.id===studentId);
   if(!s || !s.results.lucLeger) return;
   s.results.lucLeger.temps = temps;
+  s.results.lucLeger._ts = Date.now();
   saveState();
   renderClassTab(classe);
   syncToSheet(classe);
@@ -1102,7 +1109,7 @@ function groupCheckboxes(classe, studentId, group){
 }
 function toggleAbsentLL(classe, studentId, checked){
   const s = STATE.classes[classe].students.find(s=>s.id===studentId);
-  if(checked) s.results.lucLeger = {absent:true, done:false};
+  if(checked) s.results.lucLeger = {absent:true, done:false, _ts:Date.now()};
   else clearResult(s, 'lucLeger');
   saveState();
   checkAutoStop(classe);
@@ -1150,7 +1157,7 @@ async function recordLucLegerResult(classe, studentId){
   if(!student || student.group!==cl.activeGroup) return;
   if(student.results.lucLeger && (student.results.lucLeger.done||student.results.lucLeger.absent)) return;
   const r = computeResultatLucLeger(elapsed);
-  student.results.lucLeger = {done:true, absent:false, palier:r.palier, vitesse:r.vitesse, temps:elapsed, note:null};
+  student.results.lucLeger = {done:true, absent:false, palier:r.palier, vitesse:r.vitesse, temps:elapsed, note:null, _ts:Date.now()};
   saveState();
   checkAutoStop(classe);
   renderClassTab(classe);
@@ -1233,7 +1240,7 @@ async function validerSimpleValeur(classe, testKey, idx){
   const cl = STATE.classes[classe];
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const student = students[idx];
-  student.results[testKey] = {absent:false, valeur:val, note:null};
+  student.results[testKey] = {absent:false, valeur:val, note:null, _ts:Date.now()};
   saveState();
   renderClassTab(classe);
   requestAnimationFrame(()=>{
@@ -1252,7 +1259,7 @@ function toggleAbsentSimple(classe, testKey, idx, checked){
   const cl = STATE.classes[classe];
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const student = students[idx];
-  if(checked) student.results[testKey] = {absent:true};
+  if(checked) student.results[testKey] = {absent:true, _ts:Date.now()};
   else clearResult(student, testKey);
   saveState();
   renderClassTab(classe);
@@ -1310,7 +1317,7 @@ async function validerSouplesse(classe, idx, value){
   const cl = STATE.classes[classe];
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const student = students[idx];
-  student.results.souplesse = {absent:false, perf, note:null};
+  student.results.souplesse = {absent:false, perf, note:null, _ts:Date.now()};
   saveState();
   renderClassTab(classe);
   const note = await computeNote(classe, 'souplesse', perf, student.sexe);
@@ -1400,7 +1407,7 @@ async function stopVitesseChrono(classe){
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const student = students[vitesseChrono.studentIdx];
   const temps = Math.round(elapsed*100)/100;
-  student.results.vitesse = {absent:false, temps, note:null};
+  student.results.vitesse = {absent:false, temps, note:null, _ts:Date.now()};
   saveState();
   // sélection automatique de l'élève suivant sans résultat
   let nextIdx = null;
@@ -1424,7 +1431,7 @@ async function setVitesseManuel(classe, idx, value){
   const cl = STATE.classes[classe];
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const student = students[idx];
-  student.results.vitesse = {absent:false, temps:val, note:null};
+  student.results.vitesse = {absent:false, temps:val, note:null, _ts:Date.now()};
   saveState();
   renderClassTab(classe);
   const note = await computeNote(classe, 'vitesse', val, student.sexe);
@@ -1545,6 +1552,7 @@ async function recalcDemiCooper(classe, studentId, patch){
   const valeur = tours*cl.trackSize + supp;
   s.results.demiCooper.valeur = valeur;
   s.results.demiCooper.note = null;
+  s.results.demiCooper._ts = Date.now();
   saveState();
   renderClassTab(classe);
   const note = await computeNote(classe, 'endurance', valeur, s.sexe);
@@ -1590,7 +1598,7 @@ async function lockDemiCooper(classe){
     if(s.results.demiCooper && (s.results.demiCooper.done || s.results.demiCooper.absent)) return;
     const tours = s.results.demiCooper ? (s.results.demiCooper.tours||0) : 0;
     const valeur = tours*cl.trackSize;
-    s.results.demiCooper = {absent:false, done:true, tours, distanceSupp:0, valeur, note:null};
+    s.results.demiCooper = {absent:false, done:true, tours, distanceSupp:0, valeur, note:null, _ts:Date.now()};
     toFinalize.push(s);
   });
   saveState();
@@ -1611,15 +1619,16 @@ function incrementTour(classe, studentId){
   if(!cl.runState.running) return;
   const s = cl.students.find(s=>s.id===studentId);
   if(!s || s.group!==cl.activeGroup) return;
-  if(!s.results.demiCooper) s.results.demiCooper = {tours:0, absent:false, done:false};
+  if(!s.results.demiCooper) s.results.demiCooper = {tours:0, absent:false, done:false, _ts:Date.now()};
   if(s.results.demiCooper.done || s.results.demiCooper.absent) return;
   s.results.demiCooper.tours = (s.results.demiCooper.tours||0)+1;
+  s.results.demiCooper._ts = Date.now();
   saveState();
   renderClassTab(classe);
 }
 function toggleAbsentDemiCooper(classe, studentId, checked){
   const s = STATE.classes[classe].students.find(s=>s.id===studentId);
-  if(checked) s.results.demiCooper = {absent:true, done:false, tours:0};
+  if(checked) s.results.demiCooper = {absent:true, done:false, tours:0, _ts:Date.now()};
   else clearResult(s, 'demiCooper');
   saveState();
   renderClassTab(classe);
@@ -1707,7 +1716,7 @@ async function assignVitesse40(classe, studentId){
   const cl = STATE.classes[classe];
   const s = cl.students.find(x=>x.id===studentId);
   if(!s) return;
-  s.results.vitesse40 = {absent:false, temps, note:null};
+  s.results.vitesse40 = {absent:false, temps, note:null, _ts:Date.now()};
   saveState();
   renderClassTab(classe);
   const note = await computeNote(classe, 'vitesse', temps, s.sexe);
@@ -1756,7 +1765,7 @@ async function setVitesse40Manuel(classe, studentId, value){
   const cl = STATE.classes[classe];
   const s = cl.students.find(x=>x.id===studentId);
   if(!s) return;
-  s.results.vitesse40 = {absent:false, temps:val, note:null};
+  s.results.vitesse40 = {absent:false, temps:val, note:null, _ts:Date.now()};
   saveState();
   renderClassTab(classe);
   const note = await computeNote(classe, 'vitesse', val, s.sexe);
@@ -1771,7 +1780,7 @@ function toggleAbsentVitesse40(classe, studentId, checked){
   const cl = STATE.classes[classe];
   const s = cl.students.find(x=>x.id===studentId);
   if(!s) return;
-  if(checked) s.results.vitesse40 = {absent:true};
+  if(checked) s.results.vitesse40 = {absent:true, _ts:Date.now()};
   else clearResult(s, 'vitesse40');
   saveState();
   renderClassTab(classe);
