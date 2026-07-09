@@ -627,11 +627,34 @@ function lookupNote(table, valeur, sexe, higherIsBetter){
     return table[table.length-1][key];
   }
 }
-let syncTimers = {};
+// La synchro se fait désormais automatiquement toutes les 5 minutes (voir
+// periodicAutoSync) plutôt qu'à chaque performance validée : un envoi immédiat
+// provoquait un redessin du tableau qui coupait la saisie du champ suivant.
+// Chaque validation marque juste sa classe "à synchroniser" ; le bouton
+// "🔄 Synchroniser" et le minuteur de 5mn s'occupent de l'envoi réel.
+let dirtyClasses = new Set();
 function syncToSheet(classe){
   if(!APPS_SCRIPT_URL) return;
-  if(syncTimers[classe]) clearTimeout(syncTimers[classe]);
-  syncTimers[classe] = setTimeout(()=>doSyncToSheet(classe), 1200);
+  dirtyClasses.add(classe);
+}
+function isEnteringDataFor(classe){
+  const kp = document.getElementById('numKeypad');
+  if(!kp || kp.classList.contains('hidden') || !activeNumInput) return false;
+  const container = document.getElementById('testContent-'+slug(classe));
+  return !!(container && container.contains(activeNumInput));
+}
+async function periodicAutoSync(){
+  if(!APPS_SCRIPT_URL) return;
+  await syncClassList();
+  const classes = [...dirtyClasses];
+  dirtyClasses.clear();
+  for(const classe of classes){
+    try{ await doSyncToSheet(classe); }
+    catch(err){
+      console.warn('Synchronisation périodique impossible pour', classe, err);
+      dirtyClasses.add(classe);
+    }
+  }
 }
 async function doSyncToSheet(classe){
   if(!APPS_SCRIPT_URL || !STATE.classes[classe]) return;
@@ -663,7 +686,7 @@ async function doSyncToSheet(classe){
       body: JSON.stringify(payload)
     });
     cl.everSynced = true;
-    renderClassTab(classe);
+    if(!isEnteringDataFor(classe)) renderClassTab(classe);
     setSyncStatus(classe, 'Dernière synchro : '+new Date().toLocaleTimeString('fr-FR'));
   }catch(err){
     console.warn('Synchro Google Sheet impossible', err);
@@ -786,7 +809,7 @@ async function autoLoadAllFromSheet(){
   for(const classe of STATE.order){
     try{
       const {ok} = await fetchAndMergeResultsFromSheet(classe);
-      if(ok) renderClassTab(classe);
+      if(ok && !isEnteringDataFor(classe)) renderClassTab(classe);
     }catch(err){
       console.warn('Auto-chargement depuis le Sheet impossible pour', classe, err);
     }
@@ -796,6 +819,7 @@ async function synchroniserTout(){
   if(!APPS_SCRIPT_URL) return;
   setSyncStatus(null, 'Synchronisation en cours...');
   await syncClassList();
+  dirtyClasses.clear();
   let nbErreurs = 0;
   for(const classe of STATE.order){
     try{
@@ -2318,7 +2342,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   } else {
     switchTab('resultats');
   }
-  if(APPS_SCRIPT_URL) qs('#globalSyncBar').classList.remove('hidden');
+  if(APPS_SCRIPT_URL){
+    qs('#globalSyncBar').classList.remove('hidden');
+    setInterval(periodicAutoSync, 5*60*1000);
+  }
   autoLoadAllFromSheet();
 });
 </script>
