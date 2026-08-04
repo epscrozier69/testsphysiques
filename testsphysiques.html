@@ -1119,12 +1119,24 @@ function supprimerClasse(classe){
   if(APPS_SCRIPT_URL){
     // Envoi en arrière-plan (sans attendre) : la fenêtre se ferme tout de suite,
     // pas besoin d'attendre l'aller-retour réseau vers le Sheet.
-    fetch(APPS_SCRIPT_URL, {
-      method:'POST',
-      headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body: JSON.stringify({action:'delete', classe})
-    }).catch(err=>console.warn('Suppression côté Sheet impossible', err));
+    postDeleteClasseToSheet(classe);
   }
+}
+function postDeleteClasseToSheet(classe, retriesLeft){
+  if(retriesLeft===undefined) retriesLeft = 1;
+  fetch(APPS_SCRIPT_URL, {
+    method:'POST',
+    headers:{'Content-Type':'text/plain;charset=utf-8'},
+    body: JSON.stringify({action:'delete', classe})
+  }).catch(err=>{
+    // Le service Apps Script a parfois des ratés transitoires (404 passager) :
+    // un seul réessai après un court délai suffit à couvrir ce cas.
+    if(retriesLeft>0){
+      setTimeout(()=>postDeleteClasseToSheet(classe, retriesLeft-1), 2000);
+    } else {
+      console.warn('Suppression côté Sheet impossible', err);
+    }
+  });
 }
 function switchTab(tabId){
   qsa('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tabId));
