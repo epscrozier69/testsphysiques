@@ -1026,7 +1026,18 @@ function assignGroups(students){
 }
 
 /* ===================== NAVIGATION ONGLETS ===================== */
+function classeNiveauNum(classe){
+  const m = classe.match(/(\d)/);
+  return m ? parseInt(m[1],10) : 0;
+}
+function sortClasseOrder(){
+  STATE.order.sort((a,b)=>{
+    const diff = classeNiveauNum(b)-classeNiveauNum(a); // 6ème d'abord, puis 5e, 4e, 3e
+    return diff!==0 ? diff : a.localeCompare(b,'fr',{numeric:true});
+  });
+}
 function renderMainTabs(){
+  sortClasseOrder();
   const nav = qs('#mainTabs');
   nav.innerHTML='';
   STATE.order.forEach(classe=>{
