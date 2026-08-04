@@ -1097,13 +1097,13 @@ function openDeleteClassModal(){
 function closeDeleteClassModal(){
   qs('#deleteClassModal').classList.add('hidden');
 }
-async function confirmerSuppressionClasse(){
+function confirmerSuppressionClasse(){
   const classe = qs('#deleteClassSelect').value;
   if(!classe) return;
-  await supprimerClasse(classe);
+  supprimerClasse(classe);
   closeDeleteClassModal();
 }
-async function supprimerClasse(classe){
+function supprimerClasse(classe){
   if(!confirm(`Supprimer définitivement la classe ${classe} et tous ses résultats (sur cet appareil, sur le Google Sheet, et sur les autres appareils au prochain "Synchroniser") ?\n\nCette action est irréversible.`)) return;
   const panelId = 'tab-classe-'+slug(classe);
   const wasActive = qs('#'+panelId)?.classList.contains('active');
@@ -1117,15 +1117,13 @@ async function supprimerClasse(classe){
     switchTab(STATE.order.length ? 'classe-'+slug(STATE.order[0]) : 'resultats');
   }
   if(APPS_SCRIPT_URL){
-    try{
-      await fetch(APPS_SCRIPT_URL, {
-        method:'POST',
-        headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body: JSON.stringify({action:'delete', classe})
-      });
-    }catch(err){
-      console.warn('Suppression côté Sheet impossible', err);
-    }
+    // Envoi en arrière-plan (sans attendre) : la fenêtre se ferme tout de suite,
+    // pas besoin d'attendre l'aller-retour réseau vers le Sheet.
+    fetch(APPS_SCRIPT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: JSON.stringify({action:'delete', classe})
+    }).catch(err=>console.warn('Suppression côté Sheet impossible', err));
   }
 }
 function switchTab(tabId){
