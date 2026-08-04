@@ -179,6 +179,11 @@ thead th.sticky-col{background:#334155;z-index:3;}
 }
 .numkeypad.hidden{display:none;}
 .numkeypad-info{color:#fff;font-weight:700;font-size:.95rem;min-height:1.2em;}
+.numkeypad-display{
+  background:#0f172a;color:#ffffff;font-weight:800;font-size:1.8rem;
+  font-family:monospace;border-radius:10px;padding:8px 20px;
+  min-width:120px;text-align:right;letter-spacing:1px;
+}
 .numkeypad-grid{display:grid;grid-template-columns:repeat(3,72px);gap:8px;}
 .numkeypad-grid button{
   font-size:1.5rem;font-weight:800;padding:0;height:56px;width:72px;
@@ -190,6 +195,7 @@ thead th.sticky-col{background:#334155;z-index:3;}
 @media (min-width:700px){
   .numkeypad{padding:14px;gap:12px;}
   .numkeypad-info{font-size:1.1rem;}
+  .numkeypad-display{font-size:2.2rem;padding:10px 26px;min-width:150px;}
   .numkeypad-grid{grid-template-columns:repeat(3,90px);gap:10px;}
   .numkeypad-grid button{height:72px;width:90px;font-size:1.8rem;border-radius:12px;}
   .numkeypad .btn-secondary,.numkeypad .btn-primary{font-size:1.05rem;padding:14px 24px;min-height:48px;}
@@ -315,6 +321,7 @@ footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:
 
 <div id="numKeypad" class="numkeypad hidden">
   <div id="numKeypadInfo" class="numkeypad-info"></div>
+  <div id="numKeypadDisplay" class="numkeypad-display">0</div>
   <div class="numkeypad-grid">
     <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('7')">7</button>
     <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('8')">8</button>
@@ -484,11 +491,18 @@ function openNumericKeypad(inputEl){
   activeNumInput = inputEl;
   document.getElementById('numKeypad').classList.remove('hidden');
   updateNumKeypadInfo();
+  updateNumKeypadDisplay();
 }
 function numKeypadPress(char){
   if(!activeNumInput) return;
   if(char==='back') activeNumInput.value = activeNumInput.value.slice(0,-1);
   else activeNumInput.value += char;
+  updateNumKeypadDisplay();
+}
+function updateNumKeypadDisplay(){
+  const el = document.getElementById('numKeypadDisplay');
+  if(!el) return;
+  el.textContent = (activeNumInput && activeNumInput.value!=='') ? activeNumInput.value : '0';
 }
 function numKeypadValidate(){
   if(!activeNumInput) return;
@@ -505,6 +519,7 @@ function numKeypadValidate(){
   requestAnimationFrame(()=>{
     if(activeNumInput && activeNumInput.isConnected){
       updateNumKeypadInfo();
+      updateNumKeypadDisplay();
     } else {
       updateNumKeypadInfo('✅ Dernier élève de la liste — terminé');
       setTimeout(closeNumericKeypad, 1000);
