@@ -563,13 +563,9 @@ function rankSexeCell(ranks, studentId, sexe){
   const rs = sexe==='F' ? ranks.F[studentId] : ranks.M[studentId];
   return rs!=null ? `${medalFor(rs)}${rs}` : '—';
 }
-function twoColumnBlocks(theadHtml, rowsArr, colspan){
+function singleColumnBlock(theadHtml, rowsArr, colspan){
   if(rowsArr.length===0) return `<div class="table-wrapper"><table>${theadHtml}<tbody><tr><td colspan="${colspan}">Aucun élève</td></tr></tbody></table></div>`;
-  const half = Math.ceil(rowsArr.length/2);
-  const col1 = rowsArr.slice(0,half).join('');
-  const col2 = rowsArr.slice(half).join('');
-  const block = rowsHtml => `<div class="table-wrapper compact"><table>${theadHtml}<tbody>${rowsHtml}</tbody></table></div>`;
-  return `<div class="ll-columns">${block(col1)}${col2?block(col2):''}</div>`;
+  return `<div class="table-wrapper compact"><table>${theadHtml}<tbody>${rowsArr.join('')}</tbody></table></div>`;
 }
 function niveauPill(niveau){
   if(!niveau) return '<span class="niveau-pill niveau-abs">Absent</span>';
@@ -1495,7 +1491,7 @@ function renderSimpleNumericTest(classe, testKey){
     <div class="card">
       <p class="help-text">Cliquez sur un élève ou saisissez la valeur (${config.unite}) puis appuyez sur Entrée pour valider et passer à l'élève suivant.</p>
     </div>
-    ${twoColumnBlocks(thead, rowsArr, 7)}
+    ${singleColumnBlock(thead, rowsArr, 7)}
     <div class="card">${classAverageHtml(classe, testKey)}</div>`;
 }
 function focusSimpleInput(classeSlug, testKey, idx){
@@ -1578,7 +1574,7 @@ function renderSouplesse(classe){
     <div class="card">
       <p class="help-text">Choisissez le niveau atteint pour chaque élève dans la liste déroulante.</p>
     </div>
-    ${twoColumnBlocks(thead, rowsArr, 7)}
+    ${singleColumnBlock(thead, rowsArr, 7)}
     <div class="card">${classAverageHtml(classe, 'souplesse')}</div>`;
 }
 async function validerSouplesse(classe, idx, value){
@@ -1643,7 +1639,7 @@ function renderVitesse(classe){
       </div>
       <p class="help-text">Cliquez sur un élève pour le sélectionner, puis « Démarrer » lance le chrono. « Arrêter » enregistre le temps et sélectionne automatiquement l'élève suivant. En cas de faux départ, « Recommencer » relance le chrono à zéro sans enregistrer.</p>
     </div>
-    ${twoColumnBlocks(thead, rowsArr, 7)}
+    ${singleColumnBlock(thead, rowsArr, 7)}
     <div class="card">${classAverageHtml(classe, 'vitesse')}</div>`;
   if(running) updateVitesseChronoDisplay(classe);
 }
@@ -2028,7 +2024,7 @@ function renderVitesse40Roster(classe, students){
       </tr>`;
   });
   const thead = `<thead><tr style="background:var(--col-5);"><th>Élève</th><th>Performance</th><th>Niveau</th><th>Note</th><th>Rg.Gén</th><th>Rg.Sexe</th><th>Abs.</th></tr></thead>`;
-  container.innerHTML = twoColumnBlocks(thead, rowsArr, 7) + `<div class="card">${classAverageHtml(classe, 'vitesse40')}</div>`;
+  container.innerHTML = singleColumnBlock(thead, rowsArr, 7) + `<div class="card">${classAverageHtml(classe, 'vitesse40')}</div>`;
 }
 async function setVitesse40Manuel(classe, studentId, value){
   const val = parseFloat(value);
