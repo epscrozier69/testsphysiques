@@ -16,6 +16,7 @@
   --niveau-abesoin:#dc2626;
   --niveau-fragile:#ea580c;
   --niveau-satisfaisant:#16a34a;
+  --niveau-tresbon:#2563eb;
   --col-1:#2563eb;
   --col-2:#7c3aed;
   --col-3:#db2777;
@@ -160,7 +161,7 @@ thead th.sticky-col{background:#334155;z-index:3;}
 .niveau-A{background:var(--niveau-abesoin);}
 .niveau-F{background:var(--niveau-fragile);}
 .niveau-S{background:var(--niveau-satisfaisant);}
-.niveau-T{background:#2563eb;}
+.niveau-T{background:var(--niveau-tresbon);}
 .niveau-abs{background:#94a3b8;}
 .note-badge{display:inline-block;padding:1px 7px;border-radius:999px;background:#1e293b;color:#fff;font-weight:700;font-size:.7rem;margin-left:3px;}
 .sexe-icon{font-weight:900;font-size:1rem;}
@@ -216,7 +217,12 @@ tr.row-current td{outline:2px solid var(--primary);outline-offset:-2px;}
 .help-text{font-size:.78rem;color:var(--muted);margin-top:4px;}
 .stat-table th.garcon-head{background:var(--garcon);}
 .stat-table th.fille-head{background:var(--fille);}
-.stat-table th.general-head{background:var(--primary);}
+.stat-table th.general-head{background:#0d9488;}
+.stat-table tbody tr:nth-child(even){background:#f1f5f9;}
+.niveau-A-text{color:var(--niveau-abesoin);font-weight:700;}
+.niveau-F-text{color:var(--niveau-fragile);font-weight:700;}
+.niveau-S-text{color:var(--niveau-satisfaisant);font-weight:700;}
+.niveau-T-text{color:var(--niveau-tresbon);font-weight:700;}
 .results-avg-row td{font-weight:800;background:#f1f5f9;border-top:2px solid var(--border);}
 .sort-arrow{font-size:.7rem;opacity:.8;}
 .absent-checkbox{transform:scale(1.3);margin-right:4px;}
@@ -2347,10 +2353,10 @@ function renderStatistiques(){
           <td>${def.label}</td>
           <td>${stats.nb}</td>
           <td>${fmt(stats.moyenne)}</td>
-          <td>${stats.niveaux.A}</td>
-          <td>${stats.niveaux.F}</td>
-          <td>${stats.niveaux.S}</td>
-          <td>${stats.niveaux.T}</td>
+          <td class="niveau-A-text">${stats.niveaux.A}</td>
+          <td class="niveau-F-text">${stats.niveaux.F}</td>
+          <td class="niveau-S-text">${stats.niveaux.S}</td>
+          <td class="niveau-T-text">${stats.niveaux.T}</td>
         </tr>`;
     }).join('');
     return `
