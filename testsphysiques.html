@@ -857,19 +857,39 @@ function setSyncStatus(classe, text){
   const el = document.getElementById('global-sync-status');
   if(el) el.textContent = text;
 }
+const BAREME_STORAGE_PREFIX = 'epsJoliotCurie_bareme_v1_';
+function saveBaremeToStorage(niveau, tables){
+  try{ localStorage.setItem(BAREME_STORAGE_PREFIX+niveau, JSON.stringify(tables)); }
+  catch(err){ /* stockage plein ou indisponible : tant pis, le cache mémoire suffit pour cette session */ }
+}
+function loadBaremeFromStorage(niveau){
+  try{
+    const raw = localStorage.getItem(BAREME_STORAGE_PREFIX+niveau);
+    return raw ? JSON.parse(raw) : null;
+  }catch(err){ return null; }
+}
 let baremeCache = {};
 async function getBareme(niveau){
   if(baremeCache[niveau]) return baremeCache[niveau];
-  const res = await fetch(baremeUrl(niveau), {cache:'no-store'});
-  if(!res.ok) throw new Error('HTTP '+res.status);
-  const text = await res.text();
-  const rows = parseCSV(text);
-  const tables = {};
-  for(const [testKey, colConfig] of Object.entries(BAREME_COLUMNS[niveau])){
-    tables[testKey] = { ...colConfig, table: parseBaremeColumn(rows, colConfig) };
+  try{
+    const res = await fetch(baremeUrl(niveau), {cache:'no-store'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const text = await res.text();
+    const rows = parseCSV(text);
+    const tables = {};
+    for(const [testKey, colConfig] of Object.entries(BAREME_COLUMNS[niveau])){
+      tables[testKey] = { ...colConfig, table: parseBaremeColumn(rows, colConfig) };
+    }
+    baremeCache[niveau] = tables;
+    saveBaremeToStorage(niveau, tables);
+    return tables;
+  }catch(err){
+    // Hors connexion (ou Sheet inaccessible) : on retombe sur la dernière copie du
+    // barème enregistrée localement lors d'une précédente ouverture en ligne.
+    const stored = loadBaremeFromStorage(niveau);
+    if(stored){ baremeCache[niveau] = stored; return stored; }
+    throw err;
   }
-  baremeCache[niveau] = tables;
-  return tables;
 }
 async function computeNote(classe, testKey, valeur, sexe){
   try{
