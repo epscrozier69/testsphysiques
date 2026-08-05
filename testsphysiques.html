@@ -2160,7 +2160,11 @@ function buildResultColumns(niveau){
       {key:testKey+'_note', label:def.label+' - Note', colorVar}
     );
   });
-  return base.concat(testCols);
+  const summaryCols = [
+    {key:'total', label:'Total /120', colorVar:'--col-1'},
+    {key:'moyenne', label:'Moyenne /20', colorVar:'--col-1'}
+  ];
+  return base.concat(testCols).concat(summaryCols);
 }
 let resultatsSort = {key:'nomPrenom', dir:'asc'};
 
@@ -2199,6 +2203,9 @@ function buildResultRows(classe){
       row[testKey+'_niveau'] = done ? def.niveau(r) : (absent ? null : '—');
       row[testKey+'_note'] = done && r.note!=null ? r.note : '—';
     });
+    const notes = testKeys.map(testKey=>row[testKey+'_note']).filter(n=>typeof n==='number');
+    row.total = notes.length ? notes.reduce((a,b)=>a+b,0) : '—';
+    row.moyenne = notes.length ? Math.round((row.total/notes.length)*100)/100 : '—';
     return row;
   });
 }
@@ -2242,13 +2249,16 @@ function renderResultats(){
     row2 += `<th style="background:var(${colorVar});" onclick="onSortResultats('${testKey}_niveau')">Niveau ${sortArrow(testKey+'_niveau')}</th>`;
     row2 += `<th style="background:var(${colorVar});" onclick="onSortResultats('${testKey}_note')">Note ${sortArrow(testKey+'_note')}</th>`;
   });
+  row1 += `<th style="background:var(--col-1);" rowspan="2" onclick="onSortResultats('total')">Total /120 ${sortArrow('total')}</th>`;
+  row1 += `<th style="background:var(--col-1);" rowspan="2" onclick="onSortResultats('moyenne')">Moyenne /20 ${sortArrow('moyenne')}</th>`;
   const thead = `<thead><tr>${row1}</tr><tr>${row2}</tr></thead>`;
 
   const tbody = '<tbody>'+rows.map(r=>{
     return '<tr>'+columns.map((c,i)=>{
       let val = r[c.key];
       let display;
-      if(c.key.endsWith('niveau')) display = val==='—' ? '—' : niveauPill(val);
+      if(c.key==='sexe') display = val==='M' ? 'G' : escapeHtml(String(val));
+      else if(c.key.endsWith('niveau')) display = val==='—' ? '—' : niveauPill(val);
       else if(c.key.endsWith('note')) display = (typeof val==='number') ? notePill(val) : val;
       else display = escapeHtml(String(val));
       const sticky = i===0 ? ' sticky-col' : '';
