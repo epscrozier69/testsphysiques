@@ -147,6 +147,7 @@ tbody tr.row-clickable{cursor:pointer;}
 tbody tr.row-done{opacity:.55;}
 tbody tr.row-absent{opacity:.4;text-decoration:line-through;}
 td.sticky-col,th.sticky-col{position:sticky;left:0;background:#fff;z-index:2;box-shadow:2px 0 4px rgba(0,0,0,.04);}
+.table-wrapper table th:first-child,.table-wrapper table td:first-child{width:1%;}
 thead th.sticky-col{background:#334155;z-index:3;}
 .niveau-pill{
   display:inline-block;
@@ -562,6 +563,13 @@ function rankGenCell(ranks, studentId){
 function rankSexeCell(ranks, studentId, sexe){
   const rs = sexe==='F' ? ranks.F[studentId] : ranks.M[studentId];
   return rs!=null ? `${medalFor(rs)}${rs}` : '—';
+}
+function classNumberMap(classe){
+  const cl = STATE.classes[classe];
+  const sorted = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
+  const map = {};
+  sorted.forEach((s,i)=>{ map[s.id] = i+1; });
+  return map;
 }
 function singleColumnBlock(theadHtml, rowsArr, colspan){
   if(rowsArr.length===0) return `<div class="table-wrapper"><table>${theadHtml}<tbody><tr><td colspan="${colspan}">Aucun élève</td></tr></tbody></table></div>`;
@@ -1168,19 +1176,19 @@ function updateClasseSelects(){
 const TEST_OPTIONS = {
   '6eme': [
     {value:'lucLeger', label:'🏃 Endurance (Luc Léger)'},
-    {value:'longueur', label:'🦘 Test de longueur'},
     {value:'vitesse', label:'⚡ Vitesse (30m)'},
+    {value:'longueur', label:'🦘 Test de longueur'},
     {value:'detenteVerticale', label:'⬆️ Détente verticale'},
-    {value:'souplesse', label:'🤸 Souplesse'},
-    {value:'pompes', label:'💪 Force des bras (Pompes)'}
+    {value:'pompes', label:'💪 Force des bras (Pompes)'},
+    {value:'souplesse', label:'🤸 Souplesse'}
   ],
   '5eme': [
     {value:'demiCooper', label:'🏃 Endurance (Demi-Cooper 6mn)'},
     {value:'vitesse40', label:'⚡ Vitesse (40m)'},
     {value:'detenteHorizontale', label:'🦘 Détente horizontale'},
     {value:'detenteVerticale', label:'⬆️ Détente verticale'},
-    {value:'souplesse', label:'🤸 Souplesse'},
-    {value:'pompes', label:'💪 Force des bras (Pompes)'}
+    {value:'pompes', label:'💪 Force des bras (Pompes)'},
+    {value:'souplesse', label:'🤸 Souplesse'}
   ]
 };
 TEST_OPTIONS['4eme3eme'] = TEST_OPTIONS['5eme'];
@@ -1280,6 +1288,7 @@ function renderLucLeger(classe){
 function renderLLGroupColumn(classe, group, ranks){
   const cl = STATE.classes[classe];
   const students = cl.students.filter(s=>s.group===group).sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
+  const numMap = classNumberMap(classe);
   const isActive = cl.activeGroup===group && cl.runState.running;
   const rows = students.map(s=>{
     const r = s.results.lucLeger;
@@ -1300,8 +1309,8 @@ function renderLLGroupColumn(classe, group, ranks){
       resultCell = '—';
     }
     const nomCell = clickable
-      ? `<span class="dc-tile">🏃 ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</span>`
-      : `${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}`;
+      ? `<span class="dc-tile">🏃 ${numMap[s.id]}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</span>`
+      : `${numMap[s.id]}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}`;
     return `
       <tr class="${rowClass} ${clickable?'row-clickable':''}" style="${bgLight('--col-4')}" ${clickable?`onclick="recordLucLegerResult('${escapeHtml(classe)}','${s.id}')"`:''}>
         <td>${nomCell}</td>
@@ -1470,7 +1479,7 @@ function renderSimpleNumericTest(classe, testKey){
     const niveau = r && !r.absent && r.valeur!=null ? (config.niveauFn ? config.niveauFn(r.valeur) : niveauFromNote(r.note)) : null;
     return `
       <tr class="${r&&r.absent?'row-absent':''}" style="${bgLight(config.couleur)}">
-        <td class="row-clickable" onclick="focusSimpleInput('${slug(classe)}','${testKey}',${i})">${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
+        <td class="row-clickable" onclick="focusSimpleInput('${slug(classe)}','${testKey}',${i})">${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
         <td>
           <input type="number" inputmode="none" step="${config.step}" id="si-input-${testKey}-${slug(classe)}-${i}" value="${r&&r.valeur!=null?r.valeur:''}" placeholder="${config.unite}"
             data-advance="true" data-student="${escapeHtml(s.nomPrenom)}"
@@ -1555,7 +1564,7 @@ function renderSouplesse(classe){
     const options = SOUPLESSE_LEVELS.map(l=>`<option value="${l.perf}" ${r&&r.perf===l.perf?'selected':''}>${escapeHtml(l.label)}</option>`).join('');
     return `
       <tr class="${r&&r.absent?'row-absent':''}" style="${bgLight('--col-8')}">
-        <td>${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
+        <td>${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
         <td>
           <select style="max-width:150px;" ${r&&r.absent?'disabled':''} onchange="validerSouplesse('${escapeHtml(classe)}',${i},this.value)">
             <option value="">-- Choisir --</option>
@@ -1611,7 +1620,7 @@ function renderVitesse(classe){
     const isSelected = selIdx===i;
     return `
       <tr class="${r&&r.absent?'row-absent':''} ${isSelected?'row-done':''} row-clickable" style="${bgLight('--col-5')}" onclick="selectVitesseStudent('${escapeHtml(classe)}',${i})">
-        <td>${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)} ${isSelected?'👉':''}</td>
+        <td>${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)} ${isSelected?'👉':''}</td>
         <td>
           <input type="number" inputmode="none" step="0.01" value="${r&&r.temps!=null?r.temps:''}" placeholder="sec" style="width:70px;"
             onclick="event.stopPropagation()"
@@ -1749,6 +1758,7 @@ function renderDemiCooper(classe){
 function renderDemiCooperGroupColumn(classe, group, ranks){
   const cl = STATE.classes[classe];
   const students = cl.students.filter(s=>s.group===group).sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
+  const numMap = classNumberMap(classe);
   const isActiveGroup = cl.activeGroup===group;
   const running = cl.runState.running && isActiveGroup;
   const rows = students.map(s=>{
@@ -1772,8 +1782,8 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
       distanceTotale = `${tours*cl.trackSize} m`;
     }
     const nomCell = clickableRow
-      ? `<span class="dc-tile">🏃 ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</span>`
-      : `${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}`;
+      ? `<span class="dc-tile">🏃 ${numMap[s.id]}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</span>`
+      : `${numMap[s.id]}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}`;
     return `
       <tr class="${absent?'row-absent':(done?'row-done':'')} ${clickableRow?'row-clickable':''}" style="${bgLight('--col-4')}" ${clickableRow?`onclick="incrementTour('${escapeHtml(classe)}','${s.id}')"`:''}>
         <td>${nomCell}</td>
@@ -1999,13 +2009,13 @@ function renderVitesse40Roster(classe, students){
   if(!container) return;
   const ranks = computeTestRanks(classe, 'vitesse40');
   const pending = (vitesse40Heat.classe===classe) ? (vitesse40Heat.stamps.length - vitesse40Heat.assignedCount) : 0;
-  const rowsArr = students.map((s)=>{
+  const rowsArr = students.map((s,i)=>{
     const r = s.results.vitesse40;
     const niveau = r && !r.absent && r.temps!=null ? niveauFromNote(r.note) : null;
     const clickable = pending>0 && !r;
     const nomCell = clickable
-      ? `<span class="dc-tile">🏁 ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</span>`
-      : `${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}`;
+      ? `<span class="dc-tile">🏁 ${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</span>`
+      : `${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}`;
     let valeurCell;
     if(r && r.temps!=null){
       valeurCell = `<input type="number" inputmode="none" step="0.01" value="${r.temps}" style="width:70px;" ${r.absent?'disabled':''} onclick="event.stopPropagation()" onfocus="event.stopPropagation();openNumericKeypad(this)" onchange="setVitesse40Manuel('${escapeHtml(classe)}','${s.id}',this.value)">`;
@@ -2135,9 +2145,9 @@ function classAverageHtml(classe, testKey){
   return `<p class="help-text"><strong>Moyenne de la classe</strong> (${count} résultat(s)) — Performance : <strong>${avgValue!=null?avgValue:'—'} ${def.unite}</strong> · Note : <strong>${avgNote!=null?avgNote:'—'}/20</strong></p>`;
 }
 const NIVEAU_TESTS = {
-  '6eme': ['lucLeger','longueur','vitesse','detenteVerticale','souplesse','pompes'],
-  '5eme': ['demiCooper','vitesse40','detenteHorizontale','detenteVerticale','souplesse','pompes'],
-  '4eme3eme': ['demiCooper','vitesse40','detenteHorizontale','detenteVerticale','souplesse','pompes']
+  '6eme': ['lucLeger','vitesse','longueur','detenteVerticale','pompes','souplesse'],
+  '5eme': ['demiCooper','vitesse40','detenteHorizontale','detenteVerticale','pompes','souplesse'],
+  '4eme3eme': ['demiCooper','vitesse40','detenteHorizontale','detenteVerticale','pompes','souplesse']
 };
 
 /* ===================== RESULTATS ===================== */
