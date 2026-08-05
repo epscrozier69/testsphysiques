@@ -216,8 +216,8 @@ tr.row-current td{outline:2px solid var(--primary);outline-offset:-2px;}
 .help-text{font-size:.78rem;color:var(--muted);margin-top:4px;}
 .stat-table th.garcon-head{background:var(--garcon);}
 .stat-table th.fille-head{background:var(--fille);}
-.stat-table td.garcon-cell{background:#eff6ff;}
-.stat-table td.fille-cell{background:#fdf2f8;}
+.stat-table th.general-head{background:var(--primary);}
+.results-avg-row td{font-weight:800;background:#f1f5f9;border-top:2px solid var(--border);}
 .sort-arrow{font-size:.7rem;opacity:.8;}
 .absent-checkbox{transform:scale(1.3);margin-right:4px;}
 footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:20px;}
@@ -1693,10 +1693,16 @@ async function stopVitesseChrono(classe){
   const temps = Math.round(elapsed*100)/100;
   student.results.vitesse = {absent:false, temps, note:null, _ts:Date.now()};
   saveState();
-  // sélection automatique de l'élève suivant sans résultat
+  // sélection automatique de l'élève suivant sans résultat (cherche après l'actuel,
+  // puis reboucle depuis le début pour ne jamais rater un élève resté en attente)
   let nextIdx = null;
   for(let i=vitesseChrono.studentIdx+1;i<students.length;i++){
     if(!students[i].results.vitesse) { nextIdx = i; break; }
+  }
+  if(nextIdx===null){
+    for(let i=0;i<vitesseChrono.studentIdx;i++){
+      if(!students[i].results.vitesse) { nextIdx = i; break; }
+    }
   }
   vitesseChrono.studentIdx = nextIdx;
   if(nextIdx===null) vitesseChrono.classe = null;
@@ -2281,7 +2287,17 @@ function renderResultats(){
     }).join('')+'</tr>';
   }).join('')+'</tbody>';
 
-  table.innerHTML = thead+tbody;
+  let tfoot = `<tfoot><tr class="results-avg-row"><td class="sticky-col">Moyenne de la classe</td><td></td><td></td>`;
+  NIVEAU_TESTS[niveau].forEach(testKey=>{
+    const def = TEST_DEFS[testKey];
+    const { avgValue, avgNote } = computeClassAverage(classe, testKey);
+    tfoot += `<td>${avgValue!=null?avgValue+' '+def.unite:'—'}</td>`;
+    tfoot += `<td>—</td>`;
+    tfoot += `<td>${avgNote!=null?avgNote+'/20':'—'}</td>`;
+  });
+  tfoot += `<td></td><td></td></tr></tfoot>`;
+
+  table.innerHTML = thead+tbody+tfoot;
 }
 function onSortResultats(key){
   if(resultatsSort.key===key) resultatsSort.dir = resultatsSort.dir==='asc'?'desc':'asc';
@@ -2291,8 +2307,8 @@ function onSortResultats(key){
 
 /* ===================== STATISTIQUES ===================== */
 function computeStatsForTest(students, def){
-  function statsFor(sexe){
-    const list = students.filter(s=>s.sexe===sexe && def.isDone(s.results[def.resultsKey]));
+  function statsFor(filterFn){
+    const list = students.filter(s=>filterFn(s) && def.isDone(s.results[def.resultsKey]));
     const values = list.map(s=>def.value(s.results[def.resultsKey]));
     const moyenne = values.length ? values.reduce((a,b)=>a+b,0)/values.length : null;
     const niveaux = {A:0,F:0,S:0,T:0};
@@ -2305,7 +2321,11 @@ function computeStatsForTest(students, def){
     });
     return {nb:list.length, moyenne, niveaux};
   }
-  return {garcons:statsFor('M'), filles:statsFor('F')};
+  return {
+    general: statsFor(()=>true),
+    garcons: statsFor(s=>s.sexe==='M'),
+    filles: statsFor(s=>s.sexe==='F')
+  };
 }
 function renderStatistiques(){
   const sel = qs('#statsClasseSelect');
@@ -2315,42 +2335,40 @@ function renderStatistiques(){
   if(!classe){ content.innerHTML='<p>Importez d\'abord une classe.</p>'; return; }
   const students = STATE.classes[classe].students;
   const testKeys = NIVEAU_TESTS[getNiveau(classe)];
+  const fmt = v=>v==null?'—':(Math.round(v*100)/100);
 
-  function statRow(testKey){
-    const def = TEST_DEFS[testKey];
-    const stats = computeStatsForTest(students, def);
-    const fmt = v=>v==null?'—':(Math.round(v*100)/100);
+  function statTable(title, statsKey, headClass){
+    const th = label=>`<th class="${headClass}">${label}</th>`;
+    const rows = testKeys.map(testKey=>{
+      const def = TEST_DEFS[testKey];
+      const stats = computeStatsForTest(students, def)[statsKey];
+      return `
+        <tr>
+          <td>${def.label}</td>
+          <td>${stats.nb}</td>
+          <td>${fmt(stats.moyenne)}</td>
+          <td>${stats.niveaux.A}</td>
+          <td>${stats.niveaux.F}</td>
+          <td>${stats.niveaux.S}</td>
+          <td>${stats.niveaux.T}</td>
+        </tr>`;
+    }).join('');
     return `
-      <tr>
-        <td>${def.label}</td>
-        <td class="garcon-cell">${stats.garcons.nb}</td>
-        <td class="garcon-cell">${fmt(stats.garcons.moyenne)}</td>
-        <td class="garcon-cell">${stats.garcons.niveaux.A} / ${stats.garcons.niveaux.F} / ${stats.garcons.niveaux.S} / ${stats.garcons.niveaux.T}</td>
-        <td class="fille-cell">${stats.filles.nb}</td>
-        <td class="fille-cell">${fmt(stats.filles.moyenne)}</td>
-        <td class="fille-cell">${stats.filles.niveaux.A} / ${stats.filles.niveaux.F} / ${stats.filles.niveaux.S} / ${stats.filles.niveaux.T}</td>
-      </tr>`;
+      <div class="card"><h3>${title}</h3></div>
+      <div class="table-wrapper">
+        <table class="stat-table">
+          <thead>
+            <tr>${th('Test')}${th('Testé(s)')}${th('Moyenne')}${th('A besoins')}${th('Fragile')}${th('Satisfaisant')}${th('Très bon niveau')}</tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
   }
 
-  content.innerHTML = `
-    <div class="table-wrapper">
-      <table class="stat-table">
-        <thead>
-          <tr>
-            <th rowspan="2">Test</th>
-            <th class="garcon-head" colspan="3">Garçons</th>
-            <th class="fille-head" colspan="3">Filles</th>
-          </tr>
-          <tr>
-            <th class="garcon-head">Testés</th><th class="garcon-head">Moyenne</th><th class="garcon-head">A besoins / Fragile / Satisfaisant / Très bon niveau</th>
-            <th class="fille-head">Testées</th><th class="fille-head">Moyenne</th><th class="fille-head">A besoins / Fragile / Satisfaisant / Très bon niveau</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${testKeys.map(statRow).join('')}
-        </tbody>
-      </table>
-    </div>`;
+  content.innerHTML =
+    statTable('📊 Général', 'general', 'general-head') +
+    statTable('♀ Filles', 'filles', 'fille-head') +
+    statTable('♂ Garçons', 'garcons', 'garcon-head');
 }
 
 /* ===================== EXPORT EXCEL ===================== */
