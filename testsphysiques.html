@@ -2345,6 +2345,7 @@ function renderStatistiques(){
 
   function statTable(title, statsKey, headClass){
     const th = label=>`<th class="${headClass}">${label}</th>`;
+    const niveauCell = (n, cls) => n>0 ? `<td class="${cls}">${n}</td>` : `<td>/</td>`;
     const rows = testKeys.map(testKey=>{
       const def = TEST_DEFS[testKey];
       const stats = computeStatsForTest(students, def)[statsKey];
@@ -2353,10 +2354,10 @@ function renderStatistiques(){
           <td>${def.label}</td>
           <td>${stats.nb}</td>
           <td>${fmt(stats.moyenne)}</td>
-          <td class="niveau-A-text">${stats.niveaux.A}</td>
-          <td class="niveau-F-text">${stats.niveaux.F}</td>
-          <td class="niveau-S-text">${stats.niveaux.S}</td>
-          <td class="niveau-T-text">${stats.niveaux.T}</td>
+          ${niveauCell(stats.niveaux.A,'niveau-A-text')}
+          ${niveauCell(stats.niveaux.F,'niveau-F-text')}
+          ${niveauCell(stats.niveaux.S,'niveau-S-text')}
+          ${niveauCell(stats.niveaux.T,'niveau-T-text')}
         </tr>`;
     }).join('');
     return `
