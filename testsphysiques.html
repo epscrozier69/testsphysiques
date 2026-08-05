@@ -168,40 +168,24 @@ thead th.sticky-col{background:#334155;z-index:3;}
 .sexe-icon.sexe-M{color:var(--garcon);}
 .compact th,.compact td{padding:4px 6px;font-size:.78rem;}
 #resultatsTable thead th,.stat-table thead th{position:static;}
-#resultatsTable tbody tr:nth-child(even) td{filter:brightness(0.93);}
+.table-wrapper table tbody tr:nth-child(even) td{filter:brightness(0.93);}
 .reset-icon{background:none;border:none;cursor:pointer;font-size:.85rem;padding:0 4px;min-height:auto;color:var(--muted);}
 .reset-icon:hover{color:var(--primary-dark);}
 .rank-line{white-space:nowrap;line-height:1.3;}
 .rank-line-sexe{color:var(--muted);font-size:.85em;}
 .btn-xl{font-size:1.3rem;padding:18px 32px;min-height:64px;border-radius:14px;}
-.numkeypad{
-  position:fixed;left:0;right:0;bottom:0;z-index:200;
-  background:#1e293b;padding:12px;box-shadow:0 -4px 16px rgba(0,0,0,.35);
-  display:flex;flex-direction:column;align-items:center;gap:10px;
+.entry-card{
+  border:2px dashed var(--primary);border-radius:14px;padding:16px;
+  text-align:center;background:var(--card);margin-bottom:10px;
 }
-.numkeypad.hidden{display:none;}
-.numkeypad-info{color:#fff;font-weight:700;font-size:.95rem;min-height:1.2em;}
-.numkeypad-display{
-  background:#0f172a;color:#ffffff;font-weight:800;font-size:1.8rem;
-  font-family:monospace;border-radius:10px;padding:8px 20px;
-  min-width:120px;text-align:right;letter-spacing:1px;
-}
-.numkeypad-grid{display:grid;grid-template-columns:repeat(3,72px);gap:8px;}
-.numkeypad-grid button{
-  font-size:1.5rem;font-weight:800;padding:0;height:56px;width:72px;
-  background:#334155;color:#fff;border-radius:10px;
-  touch-action:manipulation;
-}
-.numkeypad-grid button:active{background:#475569;}
-.numkeypad .btn-secondary,.numkeypad .btn-primary{touch-action:manipulation;}
-@media (min-width:700px){
-  .numkeypad{padding:14px;gap:12px;}
-  .numkeypad-info{font-size:1.1rem;}
-  .numkeypad-display{font-size:2.2rem;padding:10px 26px;min-width:150px;}
-  .numkeypad-grid{grid-template-columns:repeat(3,90px);gap:10px;}
-  .numkeypad-grid button{height:72px;width:90px;font-size:1.8rem;border-radius:12px;}
-  .numkeypad .btn-secondary,.numkeypad .btn-primary{font-size:1.05rem;padding:14px 24px;min-height:48px;}
-}
+.entry-card-name{font-size:1.3rem;font-weight:800;color:var(--primary-dark);}
+.entry-card-progress{color:var(--muted);font-size:.9rem;margin:4px 0 12px;}
+.entry-card-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;}
+.entry-card-row label{font-weight:600;}
+.entry-card-row input,.entry-card-row select{font-size:1.1rem;padding:8px 10px;width:110px;text-align:center;}
+.entry-card-done{font-size:1.15rem;font-weight:700;color:#16a34a;padding:10px;}
+.entry-tag-current{background:var(--primary);color:#fff;border-radius:999px;padding:2px 10px;font-size:.8rem;font-weight:700;}
+tr.row-current td{outline:2px solid var(--primary);outline-offset:-2px;}
 .dc-tile{
   display:inline-block;padding:8px 14px;border-radius:10px;
   background:var(--primary);color:#fff;font-weight:800;font-size:.95rem;
@@ -320,29 +304,6 @@ footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:
 </div>
 
 <footer class="app-footer">Collège Joliot Curie — Outil de suivi des tests physiques</footer>
-
-<div id="numKeypad" class="numkeypad hidden">
-  <div id="numKeypadInfo" class="numkeypad-info"></div>
-  <div id="numKeypadDisplay" class="numkeypad-display">0</div>
-  <div class="numkeypad-grid">
-    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('7')">7</button>
-    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('8')">8</button>
-    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('9')">9</button>
-    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('4')">4</button>
-    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('5')">5</button>
-    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('6')">6</button>
-    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('1')">1</button>
-    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('2')">2</button>
-    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('3')">3</button>
-    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('.')">,</button>
-    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('0')">0</button>
-    <button type="button" onmousedown="event.preventDefault()" onclick="numKeypadPress('back')">⌫</button>
-  </div>
-  <div class="row-flex" style="width:100%;justify-content:center;">
-    <button type="button" class="btn-secondary" onmousedown="event.preventDefault()" onclick="closeNumericKeypad()">Fermer</button>
-    <button type="button" class="btn-primary" onmousedown="event.preventDefault()" onclick="numKeypadValidate()">✓ Valider</button>
-  </div>
-</div>
 
 <script>
 /* ===================== CONSTANTES ===================== */
@@ -488,56 +449,6 @@ function bgLight(colorVar){ return `background:var(${colorVar}-light);`; }
 function sexeIcon(sexe){
   return sexe==='F' ? `<span class="sexe-icon sexe-F" title="Fille">♀</span>` : `<span class="sexe-icon sexe-M" title="Garçon">♂</span>`;
 }
-let activeNumInput = null;
-function openNumericKeypad(inputEl){
-  activeNumInput = inputEl;
-  document.getElementById('numKeypad').classList.remove('hidden');
-  updateNumKeypadInfo();
-  updateNumKeypadDisplay();
-}
-function numKeypadPress(char){
-  if(!activeNumInput) return;
-  if(char==='back') activeNumInput.value = activeNumInput.value.slice(0,-1);
-  else activeNumInput.value += char;
-  updateNumKeypadDisplay();
-}
-function updateNumKeypadDisplay(){
-  const el = document.getElementById('numKeypadDisplay');
-  if(!el) return;
-  el.textContent = (activeNumInput && activeNumInput.value!=='') ? activeNumInput.value : '0';
-}
-function numKeypadValidate(){
-  if(!activeNumInput) return;
-  const shouldAdvance = activeNumInput.dataset.advance==='true';
-  activeNumInput.dispatchEvent(new Event('change', {bubbles:true}));
-  if(!shouldAdvance){
-    closeNumericKeypad();
-    return;
-  }
-  // Les tests "valeur simple" (longueur/détente/pompes) font avancer le focus vers
-  // l'élève suivant (via requestAnimationFrame, après le redessin du tableau) : on
-  // vérifie ici si ça a fonctionné pour afficher le nom du prochain élève, ou pour
-  // signaler la fin de liste plutôt que de rester silencieux.
-  requestAnimationFrame(()=>{
-    if(activeNumInput && activeNumInput.isConnected){
-      updateNumKeypadInfo();
-      updateNumKeypadDisplay();
-    } else {
-      updateNumKeypadInfo('✅ Dernier élève de la liste — terminé');
-      setTimeout(closeNumericKeypad, 1000);
-    }
-  });
-}
-function updateNumKeypadInfo(msg){
-  const el = document.getElementById('numKeypadInfo');
-  if(!el) return;
-  el.textContent = msg!==undefined ? msg : (activeNumInput && activeNumInput.dataset.student ? ('Élève : '+activeNumInput.dataset.student) : '');
-}
-function closeNumericKeypad(){
-  document.getElementById('numKeypad').classList.add('hidden');
-  activeNumInput = null;
-  updateNumKeypadInfo();
-}
 function clearResult(student, testKey){
   // Marqueur non-null distinct de "jamais testé" : une synchronisation ne doit
   // jamais réinterpréter un effacement volontaire comme une simple case vide
@@ -570,6 +481,18 @@ function classNumberMap(classe){
   const map = {};
   sorted.forEach((s,i)=>{ map[s.id] = i+1; });
   return map;
+}
+let simpleEntrySelection = {}; // clé: classe+'|'+testKey -> id de l'élève sélectionné explicitement
+function getEntryStudentId(classe, testKey, students, isFinishedFn){
+  const key = classe+'|'+testKey;
+  const explicit = simpleEntrySelection[key];
+  if(explicit && students.some(s=>s.id===explicit)) return explicit;
+  const next = students.find(s=>!isFinishedFn(s.results[testKey]));
+  return next ? next.id : null;
+}
+function selectEntryStudent(classe, testKey, studentId){
+  simpleEntrySelection[classe+'|'+testKey] = studentId;
+  renderClassTab(classe);
 }
 function singleColumnBlock(theadHtml, rowsArr, colspan){
   if(rowsArr.length===0) return `<div class="table-wrapper"><table>${theadHtml}<tbody><tr><td colspan="${colspan}">Aucun élève</td></tr></tbody></table></div>`;
@@ -658,10 +581,10 @@ function syncToSheet(classe){
   dirtyClasses.add(classe);
 }
 function isEnteringDataFor(classe){
-  const kp = document.getElementById('numKeypad');
-  if(!kp || kp.classList.contains('hidden') || !activeNumInput) return false;
+  const el = document.activeElement;
+  if(!el || !['INPUT','SELECT'].includes(el.tagName)) return false;
   const container = document.getElementById('testContent-'+slug(classe));
-  return !!(container && container.contains(activeNumInput));
+  return !!(container && container.contains(el));
 }
 async function periodicAutoSync(){
   if(!APPS_SCRIPT_URL) return;
@@ -1322,7 +1245,7 @@ function renderLLGroupColumn(classe, group, ranks){
         <select onclick="event.stopPropagation()" onchange="editLucLegerPalier('${escapeHtml(classe)}','${s.id}',this.value)">
           ${PALIER_SCHEDULE.map(p=>`<option value="${p.palier}" ${r.palier===p.palier?'selected':''}>Palier ${p.palier}</option>`).join('')}
         </select>
-        <input type="number" inputmode="none" step="1" value="${Math.round(r.temps)}" style="width:50px" onclick="event.stopPropagation()" onfocus="event.stopPropagation();openNumericKeypad(this)" onchange="editLucLegerTemps('${escapeHtml(classe)}','${s.id}',this.value)"> s`;
+        <input type="number" step="1" value="${Math.round(r.temps)}" style="width:50px" onclick="event.stopPropagation()" onchange="editLucLegerTemps('${escapeHtml(classe)}','${s.id}',this.value)"> s`;
     } else if(r && r.absent){
       resultCell = '—';
     } else {
@@ -1490,58 +1413,82 @@ const SIMPLE_TEST_CONFIG = {
 };
 function renderSimpleNumericTest(classe, testKey){
   const config = SIMPLE_TEST_CONFIG[testKey];
+  const def = TEST_DEFS[testKey];
   const cl = STATE.classes[classe];
   const container = qs('#testContent-'+slug(classe));
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const ranks = computeTestRanks(classe, testKey);
+  const isFinished = r => !!(r && (r.valeur!=null || r.absent));
+  const currentId = getEntryStudentId(classe, testKey, students, isFinished);
+  const doneCount = students.filter(s=>isFinished(s.results[testKey])).length;
+  const currentStudent = currentId ? students.find(s=>s.id===currentId) : null;
+  const currentResult = currentStudent ? currentStudent.results[testKey] : null;
+
   const rowsArr = students.map((s,i)=>{
     const r = s.results[testKey];
     const niveau = r && !r.absent && r.valeur!=null ? (config.niveauFn ? config.niveauFn(r.valeur) : niveauFromNote(r.note)) : null;
+    const isCurrent = s.id===currentId;
+    let perfCell;
+    if(r && r.absent) perfCell = 'Absent';
+    else if(r && r.valeur!=null) perfCell = def.display(r);
+    else if(isCurrent) perfCell = '<span class="entry-tag-current">en cours</span>';
+    else perfCell = 'en attente';
     return `
-      <tr class="${r&&r.absent?'row-absent':''}" style="${bgLight(config.couleur)}">
-        <td class="row-clickable" onclick="focusSimpleInput('${slug(classe)}','${testKey}',${i})">${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
-        <td>
-          <input type="number" inputmode="none" step="${config.step}" id="si-input-${testKey}-${slug(classe)}-${i}" value="${r&&r.valeur!=null?r.valeur:''}" placeholder="${config.unite}"
-            data-advance="true" data-student="${escapeHtml(s.nomPrenom)}"
-            ${r&&r.absent?'disabled':''}
-            onfocus="openNumericKeypad(this)"
-            onkeydown="if(event.key==='Enter'){ event.preventDefault(); validerSimpleValeur('${escapeHtml(classe)}','${testKey}',${i}); }"
-            onchange="validerSimpleValeur('${escapeHtml(classe)}','${testKey}',${i})" style="width:70px;">
-        </td>
+      <tr class="${r&&r.absent?'row-absent':''} ${isCurrent?'row-current':''} row-clickable" style="${bgLight(config.couleur)}" onclick="selectEntryStudent('${escapeHtml(classe)}','${testKey}','${s.id}')">
+        <td>${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
+        <td>${perfCell}</td>
         <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}</td>
         <td>${r&&r.note!=null?notePill(r.note):'—'}${r&&r.valeur!=null?resetBtn(classe,s.id,testKey):''}</td>
         <td>${rankGenCell(ranks,s.id)}</td>
         <td>${rankSexeCell(ranks,s.id,s.sexe)}</td>
-        <td><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentSimple('${escapeHtml(classe)}','${testKey}',${i},this.checked)"></label></td>
+        <td onclick="event.stopPropagation()"><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentSimple('${escapeHtml(classe)}','${testKey}',${i},this.checked)"></label></td>
       </tr>`;
   });
   const thead = `<thead><tr style="background:var(${config.couleur});"><th>Élève</th><th>Performance</th><th>Niveau</th><th>Note</th><th>Rg.Gén</th><th>Rg.Sexe</th><th>Abs.</th></tr></thead>`;
+
+  const entryCardHtml = currentStudent ? `
+    <div class="entry-card">
+      <div class="entry-card-name">${escapeHtml(currentStudent.nomPrenom)} ${sexeIcon(currentStudent.sexe)}</div>
+      <div class="entry-card-progress">${doneCount}/${students.length} élève(s) testé(s)</div>
+      <div class="entry-card-row">
+        <label>${def.label} (${config.unite}) :
+          <input type="number" step="${config.step}" id="entryInput-${slug(classe)}-${testKey}" value="${currentResult&&currentResult.valeur!=null?currentResult.valeur:''}"
+            onkeydown="if(event.key==='Enter'){ event.preventDefault(); validerEntreeSimple('${escapeHtml(classe)}','${testKey}'); }">
+        </label>
+        <button class="btn-success" onclick="validerEntreeSimple('${escapeHtml(classe)}','${testKey}')">✓ Valider</button>
+        <button class="btn-danger" onclick="absentEntreeSimple('${escapeHtml(classe)}','${testKey}')">🚫 Absent</button>
+      </div>
+      <p class="help-text">Astuce : cliquez sur un élève dans la liste pour l'évaluer ou modifier son résultat. La touche Entrée valide et passe à l'élève suivant.</p>
+    </div>` : `
+    <div class="entry-card">
+      <div class="entry-card-done">✅ Tous les élèves ont été évalués</div>
+      <p class="help-text">Cliquez sur un élève dans la liste pour modifier son résultat.</p>
+    </div>`;
+
   container.innerHTML = `
-    <div class="card">
-      <p class="help-text">Cliquez sur un élève ou saisissez la valeur (${config.unite}) puis appuyez sur Entrée pour valider et passer à l'élève suivant.</p>
-    </div>
+    ${entryCardHtml}
     ${singleColumnBlock(thead, rowsArr, 7)}
     <div class="card">${classAverageHtml(classe, testKey)}</div>`;
+  requestAnimationFrame(()=>{
+    const el = document.getElementById(`entryInput-${slug(classe)}-${testKey}`);
+    if(el && document.activeElement!==el) el.focus();
+  });
 }
-function focusSimpleInput(classeSlug, testKey, idx){
-  const el = document.getElementById(`si-input-${testKey}-${classeSlug}-${idx}`);
-  if(el){ el.focus(); el.select(); }
-}
-async function validerSimpleValeur(classe, testKey, idx){
+async function validerEntreeSimple(classe, testKey){
   const config = SIMPLE_TEST_CONFIG[testKey];
-  const el = document.getElementById(`si-input-${testKey}-${slug(classe)}-${idx}`);
-  const val = parseFloat(el.value);
-  if(isNaN(val)) return;
   const cl = STATE.classes[classe];
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
-  const student = students[idx];
+  const isFinished = r => !!(r && (r.valeur!=null || r.absent));
+  const currentId = getEntryStudentId(classe, testKey, students, isFinished);
+  if(!currentId) return;
+  const input = document.getElementById(`entryInput-${slug(classe)}-${testKey}`);
+  const val = parseFloat(input.value);
+  if(isNaN(val)) return;
+  const student = students.find(s=>s.id===currentId);
   student.results[testKey] = {absent:false, valeur:val, note:null, _ts:Date.now()};
+  delete simpleEntrySelection[classe+'|'+testKey];
   saveState();
   renderClassTab(classe);
-  requestAnimationFrame(()=>{
-    const next = document.getElementById(`si-input-${testKey}-${slug(classe)}-${idx+1}`);
-    if(next){ next.focus(); next.select(); }
-  });
   const note = await computeNote(classe, config.baremeKey, val, student.sexe);
   if(student.results[testKey] && student.results[testKey].valeur===val){
     student.results[testKey].note = note;
@@ -1549,6 +1496,16 @@ async function validerSimpleValeur(classe, testKey, idx){
     renderClassTab(classe);
     syncToSheet(classe);
   }
+}
+function absentEntreeSimple(classe, testKey){
+  const cl = STATE.classes[classe];
+  const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
+  const isFinished = r => !!(r && (r.valeur!=null || r.absent));
+  const currentId = getEntryStudentId(classe, testKey, students, isFinished);
+  if(!currentId) return;
+  const idx = students.findIndex(s=>s.id===currentId);
+  delete simpleEntrySelection[classe+'|'+testKey];
+  toggleAbsentSimple(classe, testKey, idx, true);
 }
 function toggleAbsentSimple(classe, testKey, idx, checked){
   const cl = STATE.classes[classe];
@@ -1578,41 +1535,73 @@ function renderSouplesse(classe){
   const container = qs('#testContent-'+slug(classe));
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const ranks = computeTestRanks(classe, 'souplesse');
+  const isFinished = r => !!(r && (r.perf!=null || r.absent));
+  const currentId = getEntryStudentId(classe, 'souplesse', students, isFinished);
+  const doneCount = students.filter(s=>isFinished(s.results.souplesse)).length;
+  const currentStudent = currentId ? students.find(s=>s.id===currentId) : null;
+  const currentResult = currentStudent ? currentStudent.results.souplesse : null;
+
   const rowsArr = students.map((s,i)=>{
     const r = s.results.souplesse;
     const niveau = r && !r.absent && r.perf!=null ? niveauFromNote(r.note) : null;
-    const options = SOUPLESSE_LEVELS.map(l=>`<option value="${l.perf}" ${r&&r.perf===l.perf?'selected':''}>${escapeHtml(l.label)}</option>`).join('');
+    const isCurrent = s.id===currentId;
+    let perfCell;
+    if(r && r.absent) perfCell = 'Absent';
+    else if(r && r.perf!=null) perfCell = escapeHtml(TEST_DEFS.souplesse.display(r));
+    else if(isCurrent) perfCell = '<span class="entry-tag-current">en cours</span>';
+    else perfCell = 'en attente';
     return `
-      <tr class="${r&&r.absent?'row-absent':''}" style="${bgLight('--col-8')}">
+      <tr class="${r&&r.absent?'row-absent':''} ${isCurrent?'row-current':''} row-clickable" style="${bgLight('--col-8')}" onclick="selectEntryStudent('${escapeHtml(classe)}','souplesse','${s.id}')">
         <td>${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
-        <td>
-          <select style="max-width:150px;" ${r&&r.absent?'disabled':''} onchange="validerSouplesse('${escapeHtml(classe)}',${i},this.value)">
-            <option value="">-- Choisir --</option>
-            ${options}
-          </select>
-        </td>
+        <td>${perfCell}</td>
         <td>${niveau?niveauPill(niveau):(r&&r.absent?niveauPill(null):'—')}</td>
         <td>${r&&r.note!=null?notePill(r.note):'—'}${r&&r.perf!=null?resetBtn(classe,s.id,'souplesse'):''}</td>
         <td>${rankGenCell(ranks,s.id)}</td>
         <td>${rankSexeCell(ranks,s.id,s.sexe)}</td>
-        <td><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentSimple('${escapeHtml(classe)}','souplesse',${i},this.checked)"></label></td>
+        <td onclick="event.stopPropagation()"><label><input type="checkbox" class="absent-checkbox" ${r&&r.absent?'checked':''} onchange="toggleAbsentSimple('${escapeHtml(classe)}','souplesse',${i},this.checked)"></label></td>
       </tr>`;
   });
   const thead = `<thead><tr style="background:var(--col-8);"><th>Élève</th><th>Performance</th><th>Niveau</th><th>Note</th><th>Rg.Gén</th><th>Rg.Sexe</th><th>Abs.</th></tr></thead>`;
+
+  const options = SOUPLESSE_LEVELS.map(l=>`<option value="${l.perf}" ${currentResult&&currentResult.perf===l.perf?'selected':''}>${escapeHtml(l.label)}</option>`).join('');
+  const entryCardHtml = currentStudent ? `
+    <div class="entry-card">
+      <div class="entry-card-name">${escapeHtml(currentStudent.nomPrenom)} ${sexeIcon(currentStudent.sexe)}</div>
+      <div class="entry-card-progress">${doneCount}/${students.length} élève(s) testé(s)</div>
+      <div class="entry-card-row">
+        <label>Souplesse :
+          <select id="entryInput-${slug(classe)}-souplesse" style="max-width:280px;">
+            <option value="">-- Choisir --</option>
+            ${options}
+          </select>
+        </label>
+        <button class="btn-success" onclick="validerEntreeSouplesse('${escapeHtml(classe)}')">✓ Valider</button>
+        <button class="btn-danger" onclick="absentEntreeSimple('${escapeHtml(classe)}','souplesse')">🚫 Absent</button>
+      </div>
+      <p class="help-text">Astuce : cliquez sur un élève dans la liste pour l'évaluer ou modifier son résultat.</p>
+    </div>` : `
+    <div class="entry-card">
+      <div class="entry-card-done">✅ Tous les élèves ont été évalués</div>
+      <p class="help-text">Cliquez sur un élève dans la liste pour modifier son résultat.</p>
+    </div>`;
+
   container.innerHTML = `
-    <div class="card">
-      <p class="help-text">Choisissez le niveau atteint pour chaque élève dans la liste déroulante.</p>
-    </div>
+    ${entryCardHtml}
     ${singleColumnBlock(thead, rowsArr, 7)}
     <div class="card">${classAverageHtml(classe, 'souplesse')}</div>`;
 }
-async function validerSouplesse(classe, idx, value){
-  const perf = parseFloat(value);
-  if(isNaN(perf)) return;
+async function validerEntreeSouplesse(classe){
   const cl = STATE.classes[classe];
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
-  const student = students[idx];
+  const isFinished = r => !!(r && (r.perf!=null || r.absent));
+  const currentId = getEntryStudentId(classe, 'souplesse', students, isFinished);
+  if(!currentId) return;
+  const select = document.getElementById(`entryInput-${slug(classe)}-souplesse`);
+  const perf = parseFloat(select.value);
+  if(isNaN(perf)) return;
+  const student = students.find(s=>s.id===currentId);
   student.results.souplesse = {absent:false, perf, note:null, _ts:Date.now()};
+  delete simpleEntrySelection[classe+'|souplesse'];
   saveState();
   renderClassTab(classe);
   const note = await computeNote(classe, 'souplesse', perf, student.sexe);
@@ -1642,9 +1631,8 @@ function renderVitesse(classe){
       <tr class="${r&&r.absent?'row-absent':''} ${isSelected?'row-done':''} row-clickable" style="${bgLight('--col-5')}" onclick="selectVitesseStudent('${escapeHtml(classe)}',${i})">
         <td>${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)} ${isSelected?'👉':''}</td>
         <td>
-          <input type="number" inputmode="none" step="0.01" value="${r&&r.temps!=null?r.temps:''}" placeholder="sec" style="width:70px;"
+          <input type="number" step="0.01" value="${r&&r.temps!=null?r.temps:''}" placeholder="sec" style="width:70px;"
             onclick="event.stopPropagation()"
-            onfocus="event.stopPropagation();openNumericKeypad(this)"
             ${r&&r.absent?'disabled':''}
             onchange="setVitesseManuel('${escapeHtml(classe)}',${i},this.value)">
         </td>
@@ -1791,8 +1779,8 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
     if(done){
       niv = niveauFromNote(r.note);
       toursCell = `
-        <input type="number" inputmode="none" value="${r.tours}" style="width:45px" onclick="event.stopPropagation()" onfocus="event.stopPropagation();openNumericKeypad(this)" onchange="editDemiCooperTours('${escapeHtml(classe)}','${s.id}',this.value)"> t. +
-        <input type="number" inputmode="none" step="0.1" value="${r.distanceSupp||0}" style="width:55px" onclick="event.stopPropagation()" onfocus="event.stopPropagation();openNumericKeypad(this)" onchange="editDemiCooperSupp('${escapeHtml(classe)}','${s.id}',this.value)"> m`;
+        <input type="number" value="${r.tours}" style="width:45px" onclick="event.stopPropagation()" onchange="editDemiCooperTours('${escapeHtml(classe)}','${s.id}',this.value)"> t. +
+        <input type="number" step="0.1" value="${r.distanceSupp||0}" style="width:55px" onclick="event.stopPropagation()" onchange="editDemiCooperSupp('${escapeHtml(classe)}','${s.id}',this.value)"> m`;
       distanceTotale = `${r.valeur} m`;
     } else if(absent){
       toursCell = '—';
@@ -2038,7 +2026,7 @@ function renderVitesse40Roster(classe, students){
       : `${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}`;
     let valeurCell;
     if(r && r.temps!=null){
-      valeurCell = `<input type="number" inputmode="none" step="0.01" value="${r.temps}" style="width:70px;" ${r.absent?'disabled':''} onclick="event.stopPropagation()" onfocus="event.stopPropagation();openNumericKeypad(this)" onchange="setVitesse40Manuel('${escapeHtml(classe)}','${s.id}',this.value)">`;
+      valeurCell = `<input type="number" step="0.01" value="${r.temps}" style="width:70px;" ${r.absent?'disabled':''} onclick="event.stopPropagation()" onchange="setVitesse40Manuel('${escapeHtml(classe)}','${s.id}',this.value)">`;
     } else {
       valeurCell = '—';
     }
