@@ -426,8 +426,11 @@ function computeResultatLucLeger(elapsedSec){
 
 /* ===================== NIVEAUX (BAREMES) ===================== */
 function niveauLucLeger(vitesse){
-  if(vitesse < 9) return 'A besoins';
-  if(vitesse < 10) return 'Fragile';
+  // Paliers 0-1 (7,5-8 km/h) = A besoins ; paliers 2-3 (8,5-9 km/h) = Fragile ;
+  // palier 4 et plus (9,5 km/h et +) = Satisfaisant. Seuils alignés sur le barème
+  // réel des paliers (palier P = 7,5 + 0,5×P km/h, voir buildPalierSchedule).
+  if(vitesse < 8.5) return 'A besoins';
+  if(vitesse < 9.5) return 'Fragile';
   return 'Satisfaisant';
 }
 function niveauLongueur(cm){
