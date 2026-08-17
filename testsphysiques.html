@@ -200,6 +200,11 @@ tr.row-current td{outline:2px solid var(--primary);outline-offset:-2px;}
   font-size:1rem;font-weight:700;background:#0f172a;color:#fff;
   padding:10px 14px;border-radius:10px;display:inline-block;
 }
+.ll-live-float{
+  position:fixed;bottom:16px;right:16px;z-index:150;
+  font-size:1rem;font-weight:800;background:#0f172a;color:#fff;
+  padding:10px 16px;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.35);
+}
 .modal-overlay{
   position:fixed;inset:0;background:rgba(15,23,42,.55);
   display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;
@@ -1195,7 +1200,16 @@ function getAudio(){ return qs('#audioLL'); }
 // réel : le chrono du test (paliers, vitesse) ne doit démarrer qu'à partir de là,
 // pas dès le lancement du son.
 const AUDIO_START_OFFSET = 35;
-function elapsedSinceSignal(audio){ return Math.max(0, audio.currentTime - AUDIO_START_OFFSET); }
+// Le temps écoulé est calculé à partir d'une horloge JS (performance.now()) prise au
+// clic sur "Départ commun", pas depuis audio.currentTime : sur iPad, la position de
+// lecture d'un <audio> peut accuser un vrai retard par rapport au son réellement
+// entendu, ce qui décalait le palier enregistré (ex. palier 3 annoncé → palier 2
+// enregistré). L'horloge JS reste fiable quel que soit l'appareil.
+function elapsedSinceSignal(classe){
+  const cl = STATE.classes[classe];
+  if(!cl || !cl.runState.startTs) return 0;
+  return Math.max(0, (performance.now()-cl.runState.startTs)/1000 - AUDIO_START_OFFSET);
+}
 function renderLucLeger(classe){
   const cl = STATE.classes[classe];
   const container = qs('#testContent-'+slug(classe));
@@ -1221,6 +1235,7 @@ function renderLucLeger(classe){
       ${renderLLGroupColumn(classe,'B',computeTestRanks(classe,'lucLeger'))}
     </div>
     <div class="card">${classAverageHtml(classe, 'lucLeger')}</div>
+    ${running ? `<div class="ll-live-float" id="liveDisplayFloat-${slug(classe)}">Palier -- | -- km/h | --:--</div>` : ''}
   `;
   if(running) updateLiveDisplay(classe);
 }
@@ -1347,7 +1362,7 @@ function departCommun(classe){
   const audio = getAudio();
   audio.currentTime = 0;
   audio.play().catch(err=>alert("Impossible de lancer le son : "+err.message));
-  STATE.classes[classe].runState = {running:true};
+  STATE.classes[classe].runState = {running:true, startTs: performance.now()};
   if(liveTimer) clearInterval(liveTimer);
   liveTimer = setInterval(()=>updateLiveDisplay(classe), 300);
   renderClassTab(classe);
@@ -1362,18 +1377,19 @@ function stopDepart(classe){
 }
 function updateLiveDisplay(classe){
   const el = document.getElementById('liveDisplay-'+slug(classe));
-  if(!el) return;
-  const audio = getAudio();
-  const elapsed = elapsedSinceSignal(audio);
+  const elFloat = document.getElementById('liveDisplayFloat-'+slug(classe));
+  if(!el && !elFloat) return;
+  const elapsed = elapsedSinceSignal(classe);
   const idx = getPalierIndexAt(elapsed);
   const p = PALIER_SCHEDULE[idx];
-  el.textContent = `Palier ${p.palier} | ${p.vitesse.toFixed(1)} km/h | ${formatMMSS(elapsed)}`;
+  const text = `Palier ${p.palier} | ${p.vitesse.toFixed(1)} km/h | ${formatMMSS(elapsed)}`;
+  if(el) el.textContent = text;
+  if(elFloat) elFloat.textContent = text;
 }
 async function recordLucLegerResult(classe, studentId){
   const cl = STATE.classes[classe];
   if(!cl.runState.running) return;
-  const audio = getAudio();
-  const elapsed = elapsedSinceSignal(audio);
+  const elapsed = elapsedSinceSignal(classe);
   const student = cl.students.find(s=>s.id===studentId);
   if(!student || student.group!==cl.activeGroup) return;
   if(student.results.lucLeger && (student.results.lucLeger.done||student.results.lucLeger.absent)) return;
