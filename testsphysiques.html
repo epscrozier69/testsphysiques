@@ -1259,7 +1259,8 @@ function renderLLGroupColumn(classe, group, ranks){
         <select onclick="event.stopPropagation()" onchange="editLucLegerPalier('${escapeHtml(classe)}','${s.id}',this.value)">
           ${PALIER_SCHEDULE.map(p=>`<option value="${p.palier}" ${r.palier===p.palier?'selected':''}>Palier ${p.palier}</option>`).join('')}
         </select>
-        <input type="number" step="1" value="${Math.round(r.temps)}" style="width:50px" onclick="event.stopPropagation()" onchange="editLucLegerTemps('${escapeHtml(classe)}','${s.id}',this.value)"> s`;
+        <input type="number" min="0" step="1" id="ll-temps-min-${slug(classe)}-${s.id}" value="${Math.floor(r.temps/60)}" style="width:40px" onclick="event.stopPropagation()" onchange="editLucLegerTempsParts('${escapeHtml(classe)}','${s.id}')">mn
+        <input type="number" min="0" max="59" step="1" id="ll-temps-sec-${slug(classe)}-${s.id}" value="${Math.round(r.temps%60)}" style="width:40px" onclick="event.stopPropagation()" onchange="editLucLegerTempsParts('${escapeHtml(classe)}','${s.id}')">s`;
     } else if(r && r.absent){
       resultCell = '—';
     } else {
@@ -1313,6 +1314,14 @@ async function editLucLegerPalier(classe, studentId, palierStr){
     renderClassTab(classe);
     syncToSheet(classe);
   }
+}
+function editLucLegerTempsParts(classe, studentId){
+  const s = slug(classe);
+  const minEl = document.getElementById(`ll-temps-min-${s}-${studentId}`);
+  const secEl = document.getElementById(`ll-temps-sec-${s}-${studentId}`);
+  const min = parseFloat(minEl.value)||0;
+  const sec = parseFloat(secEl.value)||0;
+  editLucLegerTemps(classe, studentId, String(min*60+sec));
 }
 function editLucLegerTemps(classe, studentId, tempsStr){
   const temps = parseFloat(tempsStr);
