@@ -1158,6 +1158,7 @@ function renderClassTab(classe){
             </select>
           </label>
           ${cl.testMode ? `<button class="btn-danger" onclick="resetAllResultsForTest('${escapeHtml(classe)}','${cl.testMode}')">🗑️ Réinitialiser ce test</button>` : ''}
+          <button class="btn-secondary" onclick="recalculerNotesClasse('${escapeHtml(classe)}')">🔄 Recalculer les notes</button>
         </div>
       </div>
       ${GROUP_TESTS.includes(cl.testMode) ? `<div class="row-flex"><span class="badge groupA">Groupe A : ${nbA} élève(s)</span><span class="badge groupB">Groupe B : ${nbB} élève(s)</span></div>` : ''}
@@ -1170,6 +1171,42 @@ function renderClassTab(classe){
   else if(cl.testMode==='souplesse') renderSouplesse(classe);
   else if(cl.testMode==='demiCooper') renderDemiCooper(classe);
   else if(cl.testMode==='vitesse40') renderVitesse40(classe);
+}
+// Mappe chaque test vers la clé du barème et la valeur brute à lui passer,
+// reproduisant exactement les appels computeNote() faits lors de la saisie.
+// Sert à recalculer une note qui serait restée manquante/périmée (barème
+// indisponible au moment de la saisie, correction d'un barème depuis).
+const RECALC_NOTE_CONFIG = {
+  lucLeger: {baremeKey:'endurance', getValue:r=>r.palier},
+  demiCooper: {baremeKey:'endurance', getValue:r=>r.valeur},
+  vitesse: {baremeKey:'vitesse', getValue:r=>r.temps},
+  vitesse40: {baremeKey:'vitesse', getValue:r=>r.temps},
+  longueur: {baremeKey:'longueur', getValue:r=>r.valeur},
+  detenteHorizontale: {baremeKey:'detenteHorizontale', getValue:r=>r.valeur},
+  detenteVerticale: {baremeKey:'detenteVerticale', getValue:r=>r.valeur},
+  pompes: {baremeKey:'pompes', getValue:r=>r.valeur},
+  souplesse: {baremeKey:'souplesse', getValue:r=>r.perf}
+};
+async function recalculerNotesClasse(classe){
+  const cl = STATE.classes[classe];
+  const niveau = getNiveau(classe);
+  const testKeys = NIVEAU_TESTS[niveau];
+  let count = 0;
+  for(const s of cl.students){
+    for(const testKey of testKeys){
+      const def = TEST_DEFS[testKey];
+      const r = s.results[testKey];
+      if(!def.isDone(r)) continue;
+      const cfg = RECALC_NOTE_CONFIG[testKey];
+      const val = cfg.getValue(r);
+      const note = await computeNote(classe, cfg.baremeKey, val, s.sexe);
+      if(note!=null && note!==r.note){ r.note = note; r._ts = Date.now(); count++; }
+    }
+  }
+  saveState();
+  renderClassTab(classe);
+  alert(count>0 ? `${count} note(s) recalculée(s).` : 'Toutes les notes étaient déjà à jour.');
+  if(count>0) syncToSheet(classe);
 }
 function setTestMode(classe, mode){
   STATE.classes[classe].testMode = mode || null;
