@@ -16,7 +16,7 @@
   --niveau-abesoin:#dc2626;
   --niveau-fragile:#ea580c;
   --niveau-satisfaisant:#16a34a;
-  --niveau-tresbon:#2563eb;
+  --niveau-tresbon:#00e676;
   --col-1:#2563eb;
   --col-2:#7c3aed;
   --col-3:#db2777;
@@ -1651,7 +1651,7 @@ function renderVitesse(classe){
     const niveau = r && !r.absent && r.temps!=null ? niveauVitesse(r.temps) : null;
     const isSelected = selIdx===i;
     return `
-      <tr class="${r&&r.absent?'row-absent':''} ${isSelected?'row-done':''} row-clickable" style="${bgLight('--col-5')}" onclick="selectVitesseStudent('${escapeHtml(classe)}',${i})">
+      <tr class="${r&&r.absent?'row-absent':''} ${isSelected?'row-current':''} row-clickable" style="${bgLight('--col-5')}" onclick="selectVitesseStudent('${escapeHtml(classe)}',${i})">
         <td>${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)} ${isSelected?'👉':''}</td>
         <td>
           <input type="number" step="0.01" value="${r&&r.temps!=null?r.temps:''}" placeholder="sec" style="width:70px;"
@@ -1713,6 +1713,16 @@ async function stopVitesseChrono(classe){
   const cl = STATE.classes[classe];
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const student = students[vitesseChrono.studentIdx];
+  if(!student){
+    // Ne devrait pas arriver, mais si l'index sélectionné n'est plus valide (ex.
+    // liste modifiée entre-temps), on réaffiche quand même l'écran au lieu de
+    // rester bloqué silencieusement sur le chrono figé.
+    console.warn('stopVitesseChrono : élève introuvable pour studentIdx', vitesseChrono.studentIdx);
+    vitesseChrono.classe = null;
+    vitesseChrono.studentIdx = null;
+    renderClassTab(classe);
+    return;
+  }
   const temps = Math.round(elapsed*100)/100;
   student.results.vitesse = {absent:false, temps, note:null, _ts:Date.now()};
   saveState();
