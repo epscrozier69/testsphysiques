@@ -499,10 +499,14 @@ function niveauPill(niveau){
   return `<span class="niveau-pill ${niveauClass(niveau)}">${niveau}</span>`;
 }
 function niveauFromNote(note){
+  // Bornes "0 à 6 / 7 à 11 / 12 à 16 / 17 à 20" du barème : comme le Sheet peut
+  // renvoyer des notes intermédiaires (ex. 6,5 pour 110cm en longueur 6ème), on
+  // compare en "strictement inférieur à la borne suivante" pour que ces valeurs
+  // intermédiaires restent dans le palier du bas plutôt que de basculer au-dessus.
   if(note==null || isNaN(note)) return null;
-  if(note<=6) return 'A besoins';
-  if(note<=11) return 'Fragile';
-  if(note<=16) return 'Satisfaisant';
+  if(note<7) return 'A besoins';
+  if(note<12) return 'Fragile';
+  if(note<17) return 'Satisfaisant';
   return 'Très bon niveau';
 }
 
