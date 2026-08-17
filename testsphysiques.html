@@ -399,11 +399,13 @@ function parseCSV(text){
 }
 
 /* ===================== PALIERS LUC LEGER ===================== */
+// D'après le protocole officiel du test : échauffement de 2 min, puis le test
+// démarre à 8,5 km/h (palier 1) et augmente de 0,5 km/h chaque minute (palier).
 function buildPalierSchedule(){
-  const schedule = [{palier:0, debut:0, duree:120, vitesse:7.5}];
+  const schedule = [{palier:0, debut:0, duree:120, vitesse:8.0}];
   let start = 120;
   for(let p=1;p<=30;p++){
-    schedule.push({palier:p, debut:start, duree:60, vitesse: Math.round((7.5+0.5*p)*10)/10});
+    schedule.push({palier:p, debut:start, duree:60, vitesse: Math.round((8.0+0.5*p)*10)/10});
     start += 60;
   }
   return schedule;
@@ -415,18 +417,11 @@ function getPalierIndexAt(elapsedSec){
   return idx;
 }
 function computeResultatLucLeger(elapsedSec){
+  // Le dernier palier entendu au moment du clic est celui enregistré, sans condition
+  // de durée minimale dans ce palier (règle confirmée par l'enseignante).
   const idx = getPalierIndexAt(elapsedSec);
   const p = PALIER_SCHEDULE[idx];
-  const intoPalier = elapsedSec - p.debut;
-  const half = p.duree/2;
-  let result;
-  if(idx===0 || intoPalier>=half){
-    result = {palier:p.palier, vitesse:p.vitesse};
-  } else {
-    const prev = PALIER_SCHEDULE[idx-1];
-    result = {palier:prev.palier, vitesse:prev.vitesse};
-  }
-  return {...result, temps: elapsedSec};
+  return {palier:p.palier, vitesse:p.vitesse, temps: elapsedSec};
 }
 
 /* ===================== NIVEAUX (BAREMES) ===================== */
@@ -1247,7 +1242,7 @@ function getAudio(){ return qs('#audioLL'); }
 // Le fichier audio contient 35s d'explications/décompte avant le signal de départ
 // réel : le chrono du test (paliers, vitesse) ne doit démarrer qu'à partir de là,
 // pas dès le lancement du son.
-const AUDIO_START_OFFSET = 35;
+const AUDIO_START_OFFSET = 33;
 // Le temps écoulé est calculé à partir d'une horloge JS (performance.now()) prise au
 // clic sur "Départ commun", pas depuis audio.currentTime : sur iPad, la position de
 // lecture d'un <audio> peut accuser un vrai retard par rapport au son réellement
