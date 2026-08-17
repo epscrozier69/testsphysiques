@@ -555,7 +555,14 @@ function parseBaremeColumn(rows, colConfig){
     const f = parseFrNumber(r[colConfig.f]);
     table.push({ raw, garcons: isNaN(g)?null:g, filles: isNaN(f)?null:f });
   }
-  return table;
+  // Le Sheet peut contenir une ligne mal placée (cellule fusionnée, doublon...) avec
+  // un "raw" qui casse l'ordre croissant et/ou sans aucune note : lookupNote()
+  // suppose un tableau trié en croissant et s'arrête dès qu'il croise une ligne trop
+  // grande, donc une ligne comme ça en tête de tableau bloque tout de suite les
+  // petites valeurs. On trie et on retire les lignes totalement vides pour fiabiliser.
+  return table
+    .filter(row => row.garcons!=null || row.filles!=null)
+    .sort((a,b) => a.raw-b.raw);
 }
 function lookupNote(table, valeur, sexe, higherIsBetter){
   if(!table || table.length===0 || valeur==null || isNaN(valeur)) return null;
