@@ -425,24 +425,6 @@ function computeResultatLucLeger(elapsedSec){
 }
 
 /* ===================== NIVEAUX (BAREMES) ===================== */
-function niveauLucLeger(vitesse){
-  // Paliers 0-1 (7,5-8 km/h) = A besoins ; paliers 2-3 (8,5-9 km/h) = Fragile ;
-  // palier 4 et plus (9,5 km/h et +) = Satisfaisant. Seuils alignés sur le barème
-  // réel des paliers (palier P = 7,5 + 0,5×P km/h, voir buildPalierSchedule).
-  if(vitesse < 8.5) return 'A besoins';
-  if(vitesse < 9.5) return 'Fragile';
-  return 'Satisfaisant';
-}
-function niveauLongueur(cm){
-  if(cm <= 110) return 'A besoins';
-  if(cm <= 140) return 'Fragile';
-  return 'Satisfaisant';
-}
-function niveauVitesse(sec){
-  if(sec >= 6.8) return 'A besoins';
-  if(sec >= 6) return 'Fragile';
-  return 'Satisfaisant';
-}
 function niveauClass(niveau){
   if(niveau==='A besoins') return 'niveau-A';
   if(niveau==='Fragile') return 'niveau-F';
@@ -1254,7 +1236,7 @@ function renderLLGroupColumn(classe, group, ranks){
     const clickable = isActive && !done;
     let resultCell, niveau=null;
     if(r && r.done){
-      niveau = niveauLucLeger(r.vitesse);
+      niveau = niveauFromNote(r.note);
       resultCell = `
         <select onclick="event.stopPropagation()" onchange="editLucLegerPalier('${escapeHtml(classe)}','${s.id}',this.value)">
           ${PALIER_SCHEDULE.map(p=>`<option value="${p.palier}" ${r.palier===p.palier?'selected':''}>Palier ${p.palier}</option>`).join('')}
@@ -1429,7 +1411,7 @@ function getAudio_onEndedSetup(){
 
 /* ===================== TESTS "VALEUR SIMPLE" (Longueur / Détente horiz. / Détente vert. / Pompes) ===================== */
 const SIMPLE_TEST_CONFIG = {
-  longueur: {unite:'cm', step:'1', niveauFn:niveauLongueur, baremeKey:'longueur', couleur:'--col-3'},
+  longueur: {unite:'cm', step:'1', niveauFn:null, baremeKey:'longueur', couleur:'--col-3'},
   detenteHorizontale: {unite:'cm', step:'1', niveauFn:null, baremeKey:'detenteHorizontale', couleur:'--col-3'},
   detenteVerticale: {unite:'cm', step:'1', niveauFn:null, baremeKey:'detenteVerticale', couleur:'--col-6'},
   pompes: {unite:'reps', step:'1', niveauFn:null, baremeKey:'pompes', couleur:'--col-7'}
@@ -1648,7 +1630,7 @@ function renderVitesse(classe){
   const ranks = computeTestRanks(classe, 'vitesse');
   const rowsArr = students.map((s,i)=>{
     const r = s.results.vitesse;
-    const niveau = r && !r.absent && r.temps!=null ? niveauVitesse(r.temps) : null;
+    const niveau = r && !r.absent && r.temps!=null ? niveauFromNote(r.note) : null;
     const isSelected = selIdx===i;
     return `
       <tr class="${r&&r.absent?'row-absent':''} ${isSelected?'row-current':''} row-clickable" style="${bgLight('--col-5')}" onclick="selectVitesseStudent('${escapeHtml(classe)}',${i})">
@@ -2119,19 +2101,19 @@ const TEST_DEFS = {
     display:r=>`Palier ${r.palier} · ${r.vitesse.toFixed(1)} km/h · ${formatMMSS(r.temps)}`,
     value:r=>r.vitesse*100000+r.temps,
     avgValue:r=>r.vitesse,
-    niveau:r=>niveauLucLeger(r.vitesse)
+    niveau:r=>niveauFromNote(r.note)
   },
   longueur: {
     label:'Longueur', resultsKey:'longueur', higherIsBetter:true, unite:'cm', colorVar:'--col-3',
     isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>!!(r&&r.absent),
     display:r=>`${r.valeur} cm`, value:r=>r.valeur, avgValue:r=>r.valeur,
-    niveau:r=>niveauLongueur(r.valeur)
+    niveau:r=>niveauFromNote(r.note)
   },
   vitesse: {
     label:'Vitesse 30m', resultsKey:'vitesse', higherIsBetter:false, unite:'s', colorVar:'--col-5',
     isDone:r=>!!(r&&r.temps!=null), isAbsent:r=>!!(r&&r.absent),
     display:r=>`${r.temps} s`, value:r=>r.temps, avgValue:r=>r.temps,
-    niveau:r=>niveauVitesse(r.temps)
+    niveau:r=>niveauFromNote(r.note)
   },
   detenteVerticale: {
     label:'Détente verticale', resultsKey:'detenteVerticale', higherIsBetter:true, unite:'cm', colorVar:'--col-6',
