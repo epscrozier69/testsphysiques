@@ -1209,6 +1209,11 @@ function resetAllResultsForTest(classe, testKey){
 
 /* ===================== LUC LEGER ===================== */
 function getAudio(){ return qs('#audioLL'); }
+// Le fichier audio contient 35s d'explications/décompte avant le signal de départ
+// réel : le chrono du test (paliers, vitesse) ne doit démarrer qu'à partir de là,
+// pas dès le lancement du son.
+const AUDIO_START_OFFSET = 35;
+function elapsedSinceSignal(audio){ return Math.max(0, audio.currentTime - AUDIO_START_OFFSET); }
 function renderLucLeger(classe){
   const cl = STATE.classes[classe];
   const container = qs('#testContent-'+slug(classe));
@@ -1368,7 +1373,7 @@ function updateLiveDisplay(classe){
   const el = document.getElementById('liveDisplay-'+slug(classe));
   if(!el) return;
   const audio = getAudio();
-  const elapsed = audio.currentTime;
+  const elapsed = elapsedSinceSignal(audio);
   const idx = getPalierIndexAt(elapsed);
   const p = PALIER_SCHEDULE[idx];
   el.textContent = `Palier ${p.palier} | ${p.vitesse.toFixed(1)} km/h | ${formatMMSS(elapsed)}`;
@@ -1377,7 +1382,7 @@ async function recordLucLegerResult(classe, studentId){
   const cl = STATE.classes[classe];
   if(!cl.runState.running) return;
   const audio = getAudio();
-  const elapsed = audio.currentTime;
+  const elapsed = elapsedSinceSignal(audio);
   const student = cl.students.find(s=>s.id===studentId);
   if(!student || student.group!==cl.activeGroup) return;
   if(student.results.lucLeger && (student.results.lucLeger.done||student.results.lucLeger.absent)) return;
