@@ -2552,6 +2552,16 @@ function baremeNoteCell(lastNiveau, testKey, sexeKey, note){
   lastNiveau[key] = niveau;
   return isFirstOfTier ? `<span class="niveau-pill ${niveauClass(niveau)}">${note}/20</span>` : `${note}/20`;
 }
+// Barème filles/garçons identique pour ces épreuves : une seule colonne Niveau
+// (au lieu d'une par sexe), même logique "coloré seulement au changement" que
+// baremeNoteCell.
+function baremeNiveauCell(lastNiveauCol, testKey, note){
+  if(note==null) return '—';
+  const niveau = niveauFromNote(note);
+  const isFirstOfTier = lastNiveauCol[testKey] !== niveau;
+  lastNiveauCol[testKey] = niveau;
+  return isFirstOfTier ? niveauPill(niveau) : niveau;
+}
 // Un seul tableau large, épreuves côte à côte comme dans le Sheet (plutôt que des
 // petits tableaux empilés), avec les mêmes couleurs par épreuve que le reste de
 // l'application (les couleurs exactes des cellules du Sheet ne sont pas récupérables
@@ -2569,32 +2579,33 @@ async function renderBaremeTab(niveau){
     let row1 = '', row2 = '';
     testKeys.forEach(testKey=>{
       const meta = display[testKey];
-      const cols = meta.showNiveau ? 5 : 3;
+      const cols = meta.showNiveau ? 4 : 3;
       row1 += `<th colspan="${cols}" style="background:var(${meta.colorVar});">${meta.label}</th>`;
-      row2 += `<th style="background:var(${meta.colorVar});">Performance</th><th class="garcon-head">Garçons</th>`;
-      if(meta.showNiveau) row2 += `<th class="garcon-head">Niveau G</th>`;
-      row2 += `<th class="fille-head">Filles</th>`;
-      if(meta.showNiveau) row2 += `<th class="fille-head">Niveau F</th>`;
+      row2 += `<th style="background:var(${meta.colorVar});">Performance</th><th class="garcon-head">Garçons</th><th class="fille-head">Filles</th>`;
+      if(meta.showNiveau) row2 += `<th style="background:var(${meta.colorVar});">Niveau</th>`;
     });
     const thead = `<thead><tr>${row1}</tr><tr>${row2}</tr></thead>`;
 
     let bodyRows = '';
     const lastNiveau = {};
+    const lastNiveauCol = {};
     for(let i=0;i<maxRows;i++){
       bodyRows += '<tr>' + testKeys.map(testKey=>{
         const meta = display[testKey];
         const conf = bareme[testKey];
         const r = conf && conf.table ? conf.table[i] : null;
         const style = bgLight(meta.colorVar);
-        const nivCol = niv => niv!=null ? `<td style="${style}">${niveauPill(niveauFromNote(niv))}</td>` : `<td style="${style}"></td>`;
         if(!r){
-          return `<td style="${style}"></td>`.repeat(meta.showNiveau ? 5 : 3);
+          return `<td style="${style}"></td>`.repeat(meta.showNiveau ? 4 : 3);
         }
-        return `<td style="${style}">${escapeHtml(formatBaremeRaw(niveau, testKey, r.raw))}</td>`
+        let cells = `<td style="${style}">${escapeHtml(formatBaremeRaw(niveau, testKey, r.raw))}</td>`
           + `<td style="${style}">${baremeNoteCell(lastNiveau, testKey, 'g', r.garcons)}</td>`
-          + (meta.showNiveau ? nivCol(r.garcons) : '')
-          + `<td style="${style}">${baremeNoteCell(lastNiveau, testKey, 'f', r.filles)}</td>`
-          + (meta.showNiveau ? nivCol(r.filles) : '');
+          + `<td style="${style}">${baremeNoteCell(lastNiveau, testKey, 'f', r.filles)}</td>`;
+        if(meta.showNiveau){
+          const noteRef = r.garcons!=null ? r.garcons : r.filles;
+          cells += `<td style="${style}">${baremeNiveauCell(lastNiveauCol, testKey, noteRef)}</td>`;
+        }
+        return cells;
       }).join('') + '</tr>';
     }
     container.innerHTML = maxRows>0
