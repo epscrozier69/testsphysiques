@@ -1243,6 +1243,10 @@ function getAudio(){ return qs('#audioLL'); }
 // réel : le chrono du test (paliers, vitesse) ne doit démarrer qu'à partir de là,
 // pas dès le lancement du son.
 const AUDIO_START_OFFSET = 33;
+// Écart mesuré empiriquement entre l'événement "playing" du son et le moment où il
+// est réellement audible (démarrage encore un peu en avance après être passé sur
+// l'événement "playing" seul) : ajusté suite à un retour direct sur le terrain.
+const AUDIO_PLAYING_EVENT_LAG = 2;
 // Le temps écoulé est calculé à partir d'une horloge JS (performance.now()) prise au
 // clic sur "Départ commun", pas depuis audio.currentTime : sur iPad, la position de
 // lecture d'un <audio> peut accuser un vrai retard par rapport au son réellement
@@ -1251,7 +1255,7 @@ const AUDIO_START_OFFSET = 33;
 function elapsedSinceSignal(classe){
   const cl = STATE.classes[classe];
   if(!cl || !cl.runState.startTs) return 0;
-  return Math.max(0, (performance.now()-cl.runState.startTs)/1000 - AUDIO_START_OFFSET);
+  return Math.max(0, (performance.now()-cl.runState.startTs)/1000 - AUDIO_PLAYING_EVENT_LAG - AUDIO_START_OFFSET);
 }
 function renderLucLeger(classe){
   const cl = STATE.classes[classe];
