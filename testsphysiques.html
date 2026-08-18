@@ -1227,7 +1227,7 @@ function resetAllResultsForTest(classe, testKey){
   }
   if(testKey==='vitesse' && vitesseChrono.classe===classe){
     if(vitesseChrono.interval) clearInterval(vitesseChrono.interval);
-    vitesseChrono = {classe:null, studentIdx:null, startTs:null, interval:null};
+    vitesseChrono = {classe:null, studentId:null, startTs:null, interval:null};
   }
   if(testKey==='vitesse40' && vitesse40Heat.classe===classe){
     vitesse40Heat = {classe:null, running:false, startTs:null, stamps:[], assignedCount:0};
@@ -1692,21 +1692,22 @@ async function validerEntreeSouplesse(classe){
 }
 
 /* ===================== VITESSE ===================== */
-let vitesseChrono = { classe:null, studentIdx:null, startTs:null, interval:null };
+let vitesseChrono = { classe:null, studentId:null, startTs:null, interval:null };
 function renderVitesse(classe){
   const cl = STATE.classes[classe];
   const container = qs('#testContent-'+slug(classe));
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
-  const selIdx = (vitesseChrono.classe===classe) ? vitesseChrono.studentIdx : null;
-  const selName = selIdx!=null ? students[selIdx].nomPrenom : '--';
+  const selId = (vitesseChrono.classe===classe) ? vitesseChrono.studentId : null;
+  const selStudent = selId!=null ? students.find(s=>s.id===selId) : null;
+  const selName = selStudent ? selStudent.nomPrenom : '--';
   const running = vitesseChrono.classe===classe && vitesseChrono.interval!==null;
   const ranks = computeTestRanks(classe, 'vitesse');
   const rowsArr = students.map((s,i)=>{
     const r = s.results.vitesse;
     const niveau = r && !r.absent && r.temps!=null ? niveauFromNote(r.note) : null;
-    const isSelected = selIdx===i;
+    const isSelected = s.id===selId;
     return `
-      <tr class="${r&&r.absent?'row-absent':''} ${isSelected?'row-current':''} row-clickable" style="${bgLight('--col-5')}" onclick="selectVitesseStudent('${escapeHtml(classe)}',${i})">
+      <tr class="${r&&r.absent?'row-absent':''} ${isSelected?'row-current':''} row-clickable" style="${bgLight('--col-5')}" onclick="selectVitesseStudent('${escapeHtml(classe)}','${s.id}')">
         <td>${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)} ${isSelected?'👉':''}</td>
         <td>
           <input type="number" step="0.01" value="${r&&r.temps!=null?r.temps:''}" placeholder="sec" style="width:70px;"
@@ -1728,7 +1729,7 @@ function renderVitesse(classe){
         <div>Élève sélectionné : <strong>${escapeHtml(selName)}</strong></div>
         <div class="chrono-display" id="vChronoDisplay-${slug(classe)}">0.00 s</div>
         ${!running
-          ? `<button class="btn-primary btn-xl" ${selIdx==null?'disabled':''} onclick="startVitesseChrono('${escapeHtml(classe)}')">▶️ Démarrer</button>`
+          ? `<button class="btn-primary btn-xl" ${selId==null?'disabled':''} onclick="startVitesseChrono('${escapeHtml(classe)}')">▶️ Démarrer</button>`
           : `<button class="btn-danger btn-xl" onclick="stopVitesseChrono('${escapeHtml(classe)}')">⏹️ Arrêter</button>
              <button class="btn-secondary btn-xl" onclick="restartVitesseChrono('${escapeHtml(classe)}')">🔄 Recommencer (faux départ)</button>`}
       </div>
@@ -1738,14 +1739,14 @@ function renderVitesse(classe){
     <div class="card">${classAverageHtml(classe, 'vitesse')}</div>`;
   if(running) updateVitesseChronoDisplay(classe);
 }
-function selectVitesseStudent(classe, idx){
+function selectVitesseStudent(classe, studentId){
   if(vitesseChrono.interval) return;
   vitesseChrono.classe = classe;
-  vitesseChrono.studentIdx = idx;
+  vitesseChrono.studentId = studentId;
   renderClassTab(classe);
 }
 function startVitesseChrono(classe){
-  if(vitesseChrono.studentIdx==null) return;
+  if(vitesseChrono.studentId==null) return;
   vitesseChrono.startTs = performance.now();
   vitesseChrono.interval = setInterval(()=>updateVitesseChronoDisplay(classe), 30);
   renderClassTab(classe);
@@ -1767,14 +1768,15 @@ async function stopVitesseChrono(classe){
   vitesseChrono.interval = null;
   const cl = STATE.classes[classe];
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
-  const student = students[vitesseChrono.studentIdx];
+  const currentIdx = students.findIndex(s=>s.id===vitesseChrono.studentId);
+  const student = currentIdx!==-1 ? students[currentIdx] : null;
   if(!student){
-    // Ne devrait pas arriver, mais si l'index sélectionné n'est plus valide (ex.
-    // liste modifiée entre-temps), on réaffiche quand même l'écran au lieu de
+    // Ne devrait pas arriver, mais si l'élève sélectionné n'est plus dans la liste
+    // (ex. classe modifiée entre-temps), on réaffiche quand même l'écran au lieu de
     // rester bloqué silencieusement sur le chrono figé.
-    console.warn('stopVitesseChrono : élève introuvable pour studentIdx', vitesseChrono.studentIdx);
+    console.warn('stopVitesseChrono : élève introuvable pour studentId', vitesseChrono.studentId);
     vitesseChrono.classe = null;
-    vitesseChrono.studentIdx = null;
+    vitesseChrono.studentId = null;
     renderClassTab(classe);
     return;
   }
@@ -1782,18 +1784,20 @@ async function stopVitesseChrono(classe){
   student.results.vitesse = {absent:false, temps, note:null, _ts:Date.now()};
   saveState();
   // sélection automatique de l'élève suivant sans résultat (cherche après l'actuel,
-  // puis reboucle depuis le début pour ne jamais rater un élève resté en attente)
-  let nextIdx = null;
-  for(let i=vitesseChrono.studentIdx+1;i<students.length;i++){
-    if(!students[i].results.vitesse) { nextIdx = i; break; }
+  // puis reboucle depuis le début pour ne jamais rater un élève resté en attente).
+  // Basé sur l'id de l'élève (pas sa position dans la liste) pour rester fiable même
+  // si la liste a changé entre la sélection et l'arrêt du chrono.
+  let nextStudent = null;
+  for(let i=currentIdx+1;i<students.length;i++){
+    if(!students[i].results.vitesse) { nextStudent = students[i]; break; }
   }
-  if(nextIdx===null){
-    for(let i=0;i<vitesseChrono.studentIdx;i++){
-      if(!students[i].results.vitesse) { nextIdx = i; break; }
+  if(!nextStudent){
+    for(let i=0;i<currentIdx;i++){
+      if(!students[i].results.vitesse) { nextStudent = students[i]; break; }
     }
   }
-  vitesseChrono.studentIdx = nextIdx;
-  if(nextIdx===null) vitesseChrono.classe = null;
+  vitesseChrono.studentId = nextStudent ? nextStudent.id : null;
+  if(!nextStudent) vitesseChrono.classe = null;
   renderClassTab(classe);
   const note = await computeNote(classe, 'vitesse', temps, student.sexe);
   if(student.results.vitesse && student.results.vitesse.temps===temps){
