@@ -1787,13 +1787,18 @@ async function stopVitesseChrono(classe){
   // puis reboucle depuis le début pour ne jamais rater un élève resté en attente).
   // Basé sur l'id de l'élève (pas sa position dans la liste) pour rester fiable même
   // si la liste a changé entre la sélection et l'arrêt du chrono.
+  // Un résultat réinitialisé (« ↺ ») laisse un objet {cleared:true} non vide dans
+  // results.vitesse : il faut vérifier temps==null (pas juste l'absence de l'objet)
+  // pour le traiter comme "pas encore testé", sinon la recherche croit à tort que
+  // cet élève est déjà fait et s'arrête trop tôt.
+  const estNonTeste = s => !s.results.vitesse || s.results.vitesse.temps==null;
   let nextStudent = null;
   for(let i=currentIdx+1;i<students.length;i++){
-    if(!students[i].results.vitesse) { nextStudent = students[i]; break; }
+    if(estNonTeste(students[i])) { nextStudent = students[i]; break; }
   }
   if(!nextStudent){
     for(let i=0;i<currentIdx;i++){
-      if(!students[i].results.vitesse) { nextStudent = students[i]; break; }
+      if(estNonTeste(students[i])) { nextStudent = students[i]; break; }
     }
   }
   vitesseChrono.studentId = nextStudent ? nextStudent.id : null;
