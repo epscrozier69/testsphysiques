@@ -2527,9 +2527,17 @@ function formatBaremeRaw(niveau, testKey, raw){
   }
   return `${raw} ${BAREME_DISPLAY[niveau][testKey].unite}`;
 }
-function baremeNotePill(note){
+// Ne colore que la première note de chaque nouveau palier (A besoins/Fragile/
+// Satisfaisant/Très bon niveau) au fil des lignes, pas toutes les notes : sinon le
+// tableau devient illisible tant il y a de couleur. `lastNiveau` garde le dernier
+// niveau vu pour chaque (épreuve, sexe), remis à zéro à chaque rendu du tableau.
+function baremeNoteCell(lastNiveau, testKey, sexeKey, note){
   if(note==null) return '—';
-  return `<span class="niveau-pill ${niveauClass(niveauFromNote(note))}">${note}/20</span>`;
+  const niveau = niveauFromNote(note);
+  const key = testKey+'_'+sexeKey;
+  const isFirstOfTier = lastNiveau[key] !== niveau;
+  lastNiveau[key] = niveau;
+  return isFirstOfTier ? `<span class="niveau-pill ${niveauClass(niveau)}">${note}/20</span>` : `${note}/20`;
 }
 // Un seul tableau large, épreuves côte à côte comme dans le Sheet (plutôt que des
 // petits tableaux empilés), avec les mêmes couleurs par épreuve que le reste de
@@ -2554,6 +2562,7 @@ async function renderBaremeTab(niveau){
     const thead = `<thead><tr>${row1}</tr><tr>${row2}</tr></thead>`;
 
     let bodyRows = '';
+    const lastNiveau = {};
     for(let i=0;i<maxRows;i++){
       bodyRows += '<tr>' + testKeys.map(testKey=>{
         const meta = display[testKey];
@@ -2561,7 +2570,7 @@ async function renderBaremeTab(niveau){
         const r = conf && conf.table ? conf.table[i] : null;
         const style = bgLight(meta.colorVar);
         if(!r) return `<td style="${style}"></td><td style="${style}"></td><td style="${style}"></td>`;
-        return `<td style="${style}">${escapeHtml(formatBaremeRaw(niveau, testKey, r.raw))}</td><td style="${style}">${baremeNotePill(r.garcons)}</td><td style="${style}">${baremeNotePill(r.filles)}</td>`;
+        return `<td style="${style}">${escapeHtml(formatBaremeRaw(niveau, testKey, r.raw))}</td><td style="${style}">${baremeNoteCell(lastNiveau, testKey, 'g', r.garcons)}</td><td style="${style}">${baremeNoteCell(lastNiveau, testKey, 'f', r.filles)}</td>`;
       }).join('') + '</tr>';
     }
     container.innerHTML = maxRows>0
