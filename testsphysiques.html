@@ -2527,6 +2527,10 @@ function formatBaremeRaw(niveau, testKey, raw){
   }
   return `${raw} ${BAREME_DISPLAY[niveau][testKey].unite}`;
 }
+function baremeNotePill(note){
+  if(note==null) return '—';
+  return `<span class="niveau-pill ${niveauClass(niveauFromNote(note))}">${note}/20</span>`;
+}
 // Un seul tableau large, épreuves côte à côte comme dans le Sheet (plutôt que des
 // petits tableaux empilés), avec les mêmes couleurs par épreuve que le reste de
 // l'application (les couleurs exactes des cellules du Sheet ne sont pas récupérables
@@ -2557,7 +2561,7 @@ async function renderBaremeTab(niveau){
         const r = conf && conf.table ? conf.table[i] : null;
         const style = bgLight(meta.colorVar);
         if(!r) return `<td style="${style}"></td><td style="${style}"></td><td style="${style}"></td>`;
-        return `<td style="${style}">${escapeHtml(formatBaremeRaw(niveau, testKey, r.raw))}</td><td style="${style}">${r.garcons!=null?r.garcons+'/20':'—'}</td><td style="${style}">${r.filles!=null?r.filles+'/20':'—'}</td>`;
+        return `<td style="${style}">${escapeHtml(formatBaremeRaw(niveau, testKey, r.raw))}</td><td style="${style}">${baremeNotePill(r.garcons)}</td><td style="${style}">${baremeNotePill(r.filles)}</td>`;
       }).join('') + '</tr>';
     }
     container.innerHTML = maxRows>0
