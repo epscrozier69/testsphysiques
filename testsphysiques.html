@@ -2511,9 +2511,9 @@ function renderStatistiques(){
 /* ===================== ONGLETS BARÈME ===================== */
 const BAREME_DISPLAY = {
   '6eme': {
-    endurance:        {label:'🏃 Endurance (Luc Léger)', unite:'palier', colorVar:'--col-4'},
-    vitesse:          {label:'⚡ Vitesse 30m', unite:'sec', colorVar:'--col-5'},
-    longueur:         {label:'🦘 Longueur', unite:'cm', colorVar:'--col-3'},
+    endurance:        {label:'🏃 Endurance (Luc Léger)', unite:'palier', colorVar:'--col-4', showNiveau:true},
+    vitesse:          {label:'⚡ Vitesse 30m', unite:'sec', colorVar:'--col-5', showNiveau:true},
+    longueur:         {label:'🦘 Longueur', unite:'cm', colorVar:'--col-3', showNiveau:true},
     detenteVerticale: {label:'⬆️ Détente verticale', unite:'cm', colorVar:'--col-6'},
     pompes:           {label:'💪 Pompes', unite:'reps', colorVar:'--col-7'},
     souplesse:        {label:'🤸 Souplesse', unite:'PERF', colorVar:'--col-8'}
@@ -2569,8 +2569,12 @@ async function renderBaremeTab(niveau){
     let row1 = '', row2 = '';
     testKeys.forEach(testKey=>{
       const meta = display[testKey];
-      row1 += `<th colspan="3" style="background:var(${meta.colorVar});">${meta.label}</th>`;
-      row2 += `<th style="background:var(${meta.colorVar});">Performance</th><th class="garcon-head">Garçons</th><th class="fille-head">Filles</th>`;
+      const cols = meta.showNiveau ? 5 : 3;
+      row1 += `<th colspan="${cols}" style="background:var(${meta.colorVar});">${meta.label}</th>`;
+      row2 += `<th style="background:var(${meta.colorVar});">Performance</th><th class="garcon-head">Garçons</th>`;
+      if(meta.showNiveau) row2 += `<th class="garcon-head">Niveau G</th>`;
+      row2 += `<th class="fille-head">Filles</th>`;
+      if(meta.showNiveau) row2 += `<th class="fille-head">Niveau F</th>`;
     });
     const thead = `<thead><tr>${row1}</tr><tr>${row2}</tr></thead>`;
 
@@ -2582,8 +2586,15 @@ async function renderBaremeTab(niveau){
         const conf = bareme[testKey];
         const r = conf && conf.table ? conf.table[i] : null;
         const style = bgLight(meta.colorVar);
-        if(!r) return `<td style="${style}"></td><td style="${style}"></td><td style="${style}"></td>`;
-        return `<td style="${style}">${escapeHtml(formatBaremeRaw(niveau, testKey, r.raw))}</td><td style="${style}">${baremeNoteCell(lastNiveau, testKey, 'g', r.garcons)}</td><td style="${style}">${baremeNoteCell(lastNiveau, testKey, 'f', r.filles)}</td>`;
+        const nivCol = niv => niv!=null ? `<td style="${style}">${niveauPill(niveauFromNote(niv))}</td>` : `<td style="${style}"></td>`;
+        if(!r){
+          return `<td style="${style}"></td>`.repeat(meta.showNiveau ? 5 : 3);
+        }
+        return `<td style="${style}">${escapeHtml(formatBaremeRaw(niveau, testKey, r.raw))}</td>`
+          + `<td style="${style}">${baremeNoteCell(lastNiveau, testKey, 'g', r.garcons)}</td>`
+          + (meta.showNiveau ? nivCol(r.garcons) : '')
+          + `<td style="${style}">${baremeNoteCell(lastNiveau, testKey, 'f', r.filles)}</td>`
+          + (meta.showNiveau ? nivCol(r.filles) : '');
       }).join('') + '</tr>';
     }
     container.innerHTML = maxRows>0
