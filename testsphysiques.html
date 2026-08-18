@@ -88,6 +88,7 @@ nav.tabs{
 .tab-btn:hover{background:#dbe4ff;}
 .tab-btn.active{background:var(--primary);color:#fff;}
 .tab-btn.tab-delete-open{background:#fee2e2;color:#b91c1c;border:1px dashed #dc2626;padding:6px 10px;font-size:.75rem;min-height:32px;}
+.tab-btn.tab-group-gap{margin-left:24px;}
 .tab-btn.tab-add{background:#f0fdf4;color:#166534;border:1px dashed #16a34a;}
 main{padding:10px 16px;max-width:1400px;margin:0 auto;}
 .tab-panel{display:none;}
@@ -1051,9 +1052,10 @@ function renderMainTabs(){
   statBtn.onclick=()=>switchTab('statistiques');
   nav.appendChild(statBtn);
 
-  [['bareme-6eme','📋 Barème 6ème'],['bareme-5eme','📋 Barème 5ème'],['bareme-4eme3eme','📋 Barème 4-3ème']].forEach(([tabId,label])=>{
+  [['bareme-6eme','📋 Barème 6ème'],['bareme-5eme','📋 Barème 5ème'],['bareme-4eme3eme','📋 Barème 4-3ème']].forEach(([tabId,label],i)=>{
     const btn = document.createElement('button');
-    btn.className='tab-btn'; btn.dataset.tab=tabId;
+    btn.className='tab-btn'+(i===0?' tab-group-gap':'');
+    btn.dataset.tab=tabId;
     btn.textContent=label;
     btn.onclick=()=>switchTab(tabId);
     nav.appendChild(btn);
@@ -2496,20 +2498,20 @@ function renderStatistiques(){
 /* ===================== ONGLETS BARÈME ===================== */
 const BAREME_DISPLAY = {
   '6eme': {
-    endurance:        {label:'🏃 Endurance (Luc Léger)', unite:'palier'},
-    vitesse:          {label:'⚡ Vitesse 30m', unite:'sec'},
-    longueur:         {label:'🦘 Longueur', unite:'cm'},
-    detenteVerticale: {label:'⬆️ Détente verticale', unite:'cm'},
-    pompes:           {label:'💪 Pompes', unite:'reps'},
-    souplesse:        {label:'🤸 Souplesse', unite:'PERF'}
+    endurance:        {label:'🏃 Endurance (Luc Léger)', unite:'palier', colorVar:'--col-4'},
+    vitesse:          {label:'⚡ Vitesse 30m', unite:'sec', colorVar:'--col-5'},
+    longueur:         {label:'🦘 Longueur', unite:'cm', colorVar:'--col-3'},
+    detenteVerticale: {label:'⬆️ Détente verticale', unite:'cm', colorVar:'--col-6'},
+    pompes:           {label:'💪 Pompes', unite:'reps', colorVar:'--col-7'},
+    souplesse:        {label:'🤸 Souplesse', unite:'PERF', colorVar:'--col-8'}
   },
   '5eme': {
-    endurance:           {label:'🏃 Endurance (Demi-Cooper)', unite:'m'},
-    vitesse:              {label:'⚡ Vitesse 40m', unite:'sec'},
-    detenteHorizontale:  {label:'🦘 Détente horizontale', unite:'cm'},
-    detenteVerticale:    {label:'⬆️ Détente verticale', unite:'cm'},
-    pompes:               {label:'💪 Pompes', unite:'reps'},
-    souplesse:            {label:'🤸 Souplesse', unite:'PERF'}
+    endurance:           {label:'🏃 Endurance (Demi-Cooper)', unite:'m', colorVar:'--col-4'},
+    vitesse:              {label:'⚡ Vitesse 40m', unite:'sec', colorVar:'--col-5'},
+    detenteHorizontale:  {label:'🦘 Détente horizontale', unite:'cm', colorVar:'--col-3'},
+    detenteVerticale:    {label:'⬆️ Détente verticale', unite:'cm', colorVar:'--col-6'},
+    pompes:               {label:'💪 Pompes', unite:'reps', colorVar:'--col-7'},
+    souplesse:            {label:'🤸 Souplesse', unite:'PERF', colorVar:'--col-8'}
   }
 };
 BAREME_DISPLAY['4eme3eme'] = BAREME_DISPLAY['5eme'];
@@ -2525,6 +2527,10 @@ function formatBaremeRaw(niveau, testKey, raw){
   }
   return `${raw} ${BAREME_DISPLAY[niveau][testKey].unite}`;
 }
+// Un seul tableau large, épreuves côte à côte comme dans le Sheet (plutôt que des
+// petits tableaux empilés), avec les mêmes couleurs par épreuve que le reste de
+// l'application (les couleurs exactes des cellules du Sheet ne sont pas récupérables
+// via l'export CSV utilisé pour lire les données).
 async function renderBaremeTab(niveau){
   const container = document.getElementById('baremeContent-'+niveau);
   if(!container) return;
@@ -2532,26 +2538,31 @@ async function renderBaremeTab(niveau){
   try{
     const bareme = await getBareme(niveau);
     const display = BAREME_DISPLAY[niveau];
-    container.innerHTML = Object.entries(display).map(([testKey, meta])=>{
-      const conf = bareme[testKey];
-      if(!conf || !conf.table || conf.table.length===0){
-        return `<div class="card"><h3>${meta.label}</h3><p class="help-text">Aucune donnée disponible.</p></div>`;
-      }
-      const rows = conf.table.map(r=>`
-        <tr>
-          <td>${escapeHtml(formatBaremeRaw(niveau, testKey, r.raw))}</td>
-          <td>${r.garcons!=null?r.garcons+'/20':'—'}</td>
-          <td>${r.filles!=null?r.filles+'/20':'—'}</td>
-        </tr>`).join('');
-      return `
-        <div class="card"><h3>${meta.label}</h3></div>
-        <div class="table-wrapper compact">
-          <table>
-            <thead><tr><th>Performance</th><th>Note Garçons</th><th>Note Filles</th></tr></thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>`;
-    }).join('');
+    const testKeys = Object.keys(display);
+    const maxRows = Math.max(0, ...testKeys.map(k => (bareme[k] && bareme[k].table) ? bareme[k].table.length : 0));
+
+    let row1 = '', row2 = '';
+    testKeys.forEach(testKey=>{
+      const meta = display[testKey];
+      row1 += `<th colspan="3" style="background:var(${meta.colorVar});">${meta.label}</th>`;
+      row2 += `<th style="background:var(${meta.colorVar});">Performance</th><th style="background:var(${meta.colorVar});">Garçons</th><th style="background:var(${meta.colorVar});">Filles</th>`;
+    });
+    const thead = `<thead><tr>${row1}</tr><tr>${row2}</tr></thead>`;
+
+    let bodyRows = '';
+    for(let i=0;i<maxRows;i++){
+      bodyRows += '<tr>' + testKeys.map(testKey=>{
+        const meta = display[testKey];
+        const conf = bareme[testKey];
+        const r = conf && conf.table ? conf.table[i] : null;
+        const style = bgLight(meta.colorVar);
+        if(!r) return `<td style="${style}"></td><td style="${style}"></td><td style="${style}"></td>`;
+        return `<td style="${style}">${escapeHtml(formatBaremeRaw(niveau, testKey, r.raw))}</td><td style="${style}">${r.garcons!=null?r.garcons+'/20':'—'}</td><td style="${style}">${r.filles!=null?r.filles+'/20':'—'}</td>`;
+      }).join('') + '</tr>';
+    }
+    container.innerHTML = maxRows>0
+      ? `<div class="table-wrapper compact"><table>${thead}<tbody>${bodyRows}</tbody></table></div>`
+      : '<div class="card"><p class="help-text">Aucune donnée de barème disponible.</p></div>';
   }catch(err){
     container.innerHTML = '<div class="card"><p class="help-text">Barème indisponible pour le moment (vérifiez votre connexion).</p></div>';
   }
