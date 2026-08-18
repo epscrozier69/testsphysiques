@@ -1916,7 +1916,7 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
       toursCell = '—';
       distanceTotale = '—';
     } else {
-      toursCell = `${tours} tour(s)`;
+      toursCell = `${tours} tour(s)${tours>0?` <button class="reset-icon" onclick="event.stopPropagation();decrementTour('${escapeHtml(classe)}','${s.id}')" title="Annuler le dernier tour">↺ -1</button>`:''}`;
       distanceTotale = `${tours*cl.trackSize} m`;
     }
     const nomCell = clickableRow
@@ -2037,6 +2037,17 @@ function incrementTour(classe, studentId){
   if(!s.results.demiCooper) s.results.demiCooper = {tours:0, absent:false, done:false, _ts:Date.now()};
   if(s.results.demiCooper.done || s.results.demiCooper.absent) return;
   s.results.demiCooper.tours = (s.results.demiCooper.tours||0)+1;
+  s.results.demiCooper._ts = Date.now();
+  saveState();
+  renderClassTab(classe);
+}
+function decrementTour(classe, studentId){
+  const cl = STATE.classes[classe];
+  if(!cl.runState.running) return;
+  const s = cl.students.find(s=>s.id===studentId);
+  if(!s || s.group!==cl.activeGroup) return;
+  if(!s.results.demiCooper || s.results.demiCooper.done || s.results.demiCooper.absent) return;
+  s.results.demiCooper.tours = Math.max(0, (s.results.demiCooper.tours||0)-1);
   s.results.demiCooper._ts = Date.now();
   saveState();
   renderClassTab(classe);
