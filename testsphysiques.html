@@ -221,8 +221,9 @@ tr.row-current td{outline:2px solid var(--primary);outline-offset:-2px;}
   background:#0f172a;color:#fff;border-radius:12px;padding:14px 22px;display:inline-block;
 }
 .help-text{font-size:.78rem;color:var(--muted);margin-top:4px;}
-.stat-table th.garcon-head{background:var(--garcon);}
-.stat-table th.fille-head{background:var(--fille);}
+th.garcon-head{background:var(--garcon);}
+th.fille-head{background:var(--fille);}
+.bareme-table th,.bareme-table td{text-align:center;}
 .stat-table th.general-head{background:#0d9488;}
 .stat-table tbody tr:nth-child(even){background:#f1f5f9;}
 .niveau-A-text{color:var(--niveau-abesoin);font-weight:700;}
@@ -2557,7 +2558,7 @@ async function renderBaremeTab(niveau){
     testKeys.forEach(testKey=>{
       const meta = display[testKey];
       row1 += `<th colspan="3" style="background:var(${meta.colorVar});">${meta.label}</th>`;
-      row2 += `<th style="background:var(${meta.colorVar});">Performance</th><th style="background:var(${meta.colorVar});">Garçons</th><th style="background:var(${meta.colorVar});">Filles</th>`;
+      row2 += `<th style="background:var(${meta.colorVar});">Performance</th><th class="garcon-head">Garçons</th><th class="fille-head">Filles</th>`;
     });
     const thead = `<thead><tr>${row1}</tr><tr>${row2}</tr></thead>`;
 
@@ -2574,7 +2575,7 @@ async function renderBaremeTab(niveau){
       }).join('') + '</tr>';
     }
     container.innerHTML = maxRows>0
-      ? `<div class="table-wrapper compact"><table>${thead}<tbody>${bodyRows}</tbody></table></div>`
+      ? `<div class="table-wrapper compact"><table class="bareme-table">${thead}<tbody>${bodyRows}</tbody></table></div>`
       : '<div class="card"><p class="help-text">Aucune donnée de barème disponible.</p></div>';
   }catch(err){
     container.innerHTML = '<div class="card"><p class="help-text">Barème indisponible pour le moment (vérifiez votre connexion).</p></div>';
