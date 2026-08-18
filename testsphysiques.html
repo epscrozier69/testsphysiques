@@ -172,6 +172,7 @@ thead th.sticky-col{background:#334155;z-index:3;}
 #resultatsTable thead th,.stat-table thead th{position:static;}
 .table-wrapper table tbody tr:nth-child(even) td{filter:brightness(0.93);}
 .reset-icon{background:none;border:none;cursor:pointer;font-size:.85rem;padding:0 4px;min-height:auto;color:var(--muted);}
+.tour-undo-btn{color:#dc2626;}
 .reset-icon:hover{color:var(--primary-dark);}
 .rank-line{white-space:nowrap;line-height:1.3;}
 .rank-line-sexe{color:var(--muted);font-size:.85em;}
@@ -1916,7 +1917,7 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
       toursCell = '—';
       distanceTotale = '—';
     } else {
-      toursCell = `${tours} tour(s)${tours>0?` <button class="reset-icon" onclick="event.stopPropagation();decrementTour('${escapeHtml(classe)}','${s.id}')" title="Annuler le dernier tour">↺ -1</button>`:''}`;
+      toursCell = `${tours} tour(s)${tours>0?` <button class="reset-icon tour-undo-btn" onclick="event.stopPropagation();decrementTour('${escapeHtml(classe)}','${s.id}')" title="Annuler le dernier tour">↺ -1</button>`:''}`;
       distanceTotale = `${tours*cl.trackSize} m`;
     }
     const nomCell = clickableRow
