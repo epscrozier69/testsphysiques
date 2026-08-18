@@ -285,6 +285,19 @@ footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:
       <div id="statsContent"></div>
     </div>
   </section>
+
+  <section id="tab-bareme-6eme" class="tab-panel">
+    <div class="card"><h2>📋 Barème 6ème</h2></div>
+    <div id="baremeContent-6eme"></div>
+  </section>
+  <section id="tab-bareme-5eme" class="tab-panel">
+    <div class="card"><h2>📋 Barème 5ème</h2></div>
+    <div id="baremeContent-5eme"></div>
+  </section>
+  <section id="tab-bareme-4eme3eme" class="tab-panel">
+    <div class="card"><h2>📋 Barème 4ème-3ème</h2></div>
+    <div id="baremeContent-4eme3eme"></div>
+  </section>
 </main>
 
 <audio id="audioLL" src="assets/25QP61_bande_son_test_endurance.mp3" preload="auto"></audio>
@@ -1038,6 +1051,14 @@ function renderMainTabs(){
   statBtn.onclick=()=>switchTab('statistiques');
   nav.appendChild(statBtn);
 
+  [['bareme-6eme','📋 Barème 6ème'],['bareme-5eme','📋 Barème 5ème'],['bareme-4eme3eme','📋 Barème 4-3ème']].forEach(([tabId,label])=>{
+    const btn = document.createElement('button');
+    btn.className='tab-btn'; btn.dataset.tab=tabId;
+    btn.textContent=label;
+    btn.onclick=()=>switchTab(tabId);
+    nav.appendChild(btn);
+  });
+
   // s'assurer que les panneaux de classe existent
   STATE.order.forEach(classe=>{
     const id='tab-classe-'+slug(classe);
@@ -1108,6 +1129,9 @@ function switchTab(tabId){
   qsa('.tab-panel').forEach(p=>p.classList.toggle('active', p.id==='tab-'+tabId));
   if(tabId==='resultats') renderResultats();
   if(tabId==='statistiques') renderStatistiques();
+  if(tabId==='bareme-6eme') renderBaremeTab('6eme');
+  if(tabId==='bareme-5eme') renderBaremeTab('5eme');
+  if(tabId==='bareme-4eme3eme') renderBaremeTab('4eme3eme');
 }
 function updateClasseSelects(){
   ['resultatsClasseSelect','statsClasseSelect'].forEach(id=>{
@@ -2467,6 +2491,70 @@ function renderStatistiques(){
     statTable('📊 Général', 'general', 'general-head') +
     statTable('♀ Filles', 'filles', 'fille-head') +
     statTable('♂ Garçons', 'garcons', 'garcon-head');
+}
+
+/* ===================== ONGLETS BARÈME ===================== */
+const BAREME_DISPLAY = {
+  '6eme': {
+    endurance:        {label:'🏃 Endurance (Luc Léger)', unite:'palier'},
+    vitesse:          {label:'⚡ Vitesse 30m', unite:'sec'},
+    longueur:         {label:'🦘 Longueur', unite:'cm'},
+    detenteVerticale: {label:'⬆️ Détente verticale', unite:'cm'},
+    pompes:           {label:'💪 Pompes', unite:'reps'},
+    souplesse:        {label:'🤸 Souplesse', unite:'PERF'}
+  },
+  '5eme': {
+    endurance:           {label:'🏃 Endurance (Demi-Cooper)', unite:'m'},
+    vitesse:              {label:'⚡ Vitesse 40m', unite:'sec'},
+    detenteHorizontale:  {label:'🦘 Détente horizontale', unite:'cm'},
+    detenteVerticale:    {label:'⬆️ Détente verticale', unite:'cm'},
+    pompes:               {label:'💪 Pompes', unite:'reps'},
+    souplesse:            {label:'🤸 Souplesse', unite:'PERF'}
+  }
+};
+BAREME_DISPLAY['4eme3eme'] = BAREME_DISPLAY['5eme'];
+
+function formatBaremeRaw(niveau, testKey, raw){
+  if(testKey==='souplesse'){
+    const lvl = SOUPLESSE_LEVELS.find(l=>l.perf===raw);
+    return lvl ? lvl.label : `PERF ${raw}`;
+  }
+  if(testKey==='endurance' && niveau==='6eme'){
+    const p = PALIER_SCHEDULE.find(p=>p.palier===raw);
+    return p ? `Palier ${raw} (${p.vitesse} km/h)` : `Palier ${raw}`;
+  }
+  return `${raw} ${BAREME_DISPLAY[niveau][testKey].unite}`;
+}
+async function renderBaremeTab(niveau){
+  const container = document.getElementById('baremeContent-'+niveau);
+  if(!container) return;
+  container.innerHTML = '<div class="card"><p class="help-text">Chargement du barème...</p></div>';
+  try{
+    const bareme = await getBareme(niveau);
+    const display = BAREME_DISPLAY[niveau];
+    container.innerHTML = Object.entries(display).map(([testKey, meta])=>{
+      const conf = bareme[testKey];
+      if(!conf || !conf.table || conf.table.length===0){
+        return `<div class="card"><h3>${meta.label}</h3><p class="help-text">Aucune donnée disponible.</p></div>`;
+      }
+      const rows = conf.table.map(r=>`
+        <tr>
+          <td>${escapeHtml(formatBaremeRaw(niveau, testKey, r.raw))}</td>
+          <td>${r.garcons!=null?r.garcons+'/20':'—'}</td>
+          <td>${r.filles!=null?r.filles+'/20':'—'}</td>
+        </tr>`).join('');
+      return `
+        <div class="card"><h3>${meta.label}</h3></div>
+        <div class="table-wrapper compact">
+          <table>
+            <thead><tr><th>Performance</th><th>Note Garçons</th><th>Note Filles</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }).join('');
+  }catch(err){
+    container.innerHTML = '<div class="card"><p class="help-text">Barème indisponible pour le moment (vérifiez votre connexion).</p></div>';
+  }
 }
 
 /* ===================== EXPORT EXCEL ===================== */
