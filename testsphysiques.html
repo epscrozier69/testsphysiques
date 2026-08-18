@@ -1404,8 +1404,18 @@ function departCommun(classe){
   }
   const audio = getAudio();
   audio.currentTime = 0;
+  STATE.classes[classe].runState = {running:true, startTs: null};
+  // Le chrono ne démarre qu'au moment où le son est réellement audible (événement
+  // "playing"), pas au moment de l'appel play() : sur certains appareils, un délai
+  // de démarrage du son (parfois ~2s) décalait le chrono en avance sur le vrai coup
+  // de sifflet.
+  audio.addEventListener('playing', function onPlaying(){
+    audio.removeEventListener('playing', onPlaying);
+    if(STATE.classes[classe].runState.running){
+      STATE.classes[classe].runState.startTs = performance.now();
+    }
+  });
   audio.play().catch(err=>alert("Impossible de lancer le son : "+err.message));
-  STATE.classes[classe].runState = {running:true, startTs: performance.now()};
   if(liveTimer) clearInterval(liveTimer);
   liveTimer = setInterval(()=>updateLiveDisplay(classe), 300);
   renderClassTab(classe);
