@@ -177,6 +177,9 @@ thead th.sticky-col{background:#334155;z-index:3;}
 .rank-line{white-space:nowrap;line-height:1.3;}
 .rank-line-sexe{color:var(--muted);font-size:.85em;}
 .btn-xl{font-size:1.3rem;padding:18px 32px;min-height:64px;border-radius:14px;}
+@media (min-width:700px){
+  .btn-xl{font-size:1.6rem;padding:24px 44px;min-height:80px;}
+}
 .entry-card{
   border:2px dashed var(--primary);border-radius:14px;padding:16px;
   text-align:center;background:var(--card);margin-bottom:10px;
@@ -2081,8 +2084,8 @@ function renderVitesse40(classe){
     <div class="card">
       <div class="row-flex">
         ${!running
-          ? `<button class="btn-primary" onclick="departVitesse40('${escapeHtml(classe)}')">▶️ Départ commun</button>`
-          : `<button class="btn-success" ${vitesse40Heat.stamps.length>=3?'disabled':''} onclick="stampVitesse40('${escapeHtml(classe)}')">🏁 Arrivée (${vitesse40Heat.stamps.length}/3)</button>
+          ? `<button class="btn-primary btn-xl" onclick="departVitesse40('${escapeHtml(classe)}')">▶️ Départ commun</button>`
+          : `<button class="btn-success btn-xl" ${vitesse40Heat.stamps.length>=3?'disabled':''} onclick="stampVitesse40('${escapeHtml(classe)}')">🏁 Arrivée (${vitesse40Heat.stamps.length}/3)</button>
              <button class="btn-danger" onclick="stopVitesse40Heat('${escapeHtml(classe)}')">⏹️ Arrêter</button>
              <div class="chrono-display" id="v40-live-${slug(classe)}">0.00 s</div>`}
         ${(running || pending>0) ? `<button class="btn-secondary" onclick="restartVitesse40Heat('${escapeHtml(classe)}')">🔄 Recommencer (faux départ)</button>` : ''}
