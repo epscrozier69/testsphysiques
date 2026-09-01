@@ -124,6 +124,7 @@ button{
   font-size:.9rem;
   font-weight:600;
   min-height:42px;
+  touch-action:manipulation;
 }
 .btn-primary{background:var(--primary);color:#fff;}
 .btn-primary:hover{background:var(--primary-dark);}
@@ -2085,9 +2086,9 @@ function renderVitesse40(classe){
       <div class="row-flex">
         ${!running
           ? `<button class="btn-primary btn-xl" onclick="departVitesse40('${escapeHtml(classe)}')">▶️ Départ commun</button>`
-          : `<button class="btn-success btn-xl" ${vitesse40Heat.stamps.length>=3?'disabled':''} onclick="stampVitesse40('${escapeHtml(classe)}')">🏁 Arrivée (${vitesse40Heat.stamps.length}/3)</button>
-             <button class="btn-danger" onclick="stopVitesse40Heat('${escapeHtml(classe)}')">⏹️ Arrêter</button>
-             <div class="chrono-display" id="v40-live-${slug(classe)}">0.00 s</div>`}
+          : `<button class="btn-danger" onclick="stopVitesse40Heat('${escapeHtml(classe)}')">⏹️ Arrêter</button>
+             <div class="chrono-display" id="v40-live-${slug(classe)}">0.00 s</div>
+             <button class="btn-success btn-xl" style="margin-left:auto" ${vitesse40Heat.stamps.length>=3?'disabled':''} onclick="stampVitesse40('${escapeHtml(classe)}')">🏁 Arrivée (${vitesse40Heat.stamps.length}/3)</button>`}
         ${(running || pending>0) ? `<button class="btn-secondary" onclick="restartVitesse40Heat('${escapeHtml(classe)}')">🔄 Recommencer (faux départ)</button>` : ''}
       </div>
       ${stampsHtml?`<div class="row-flex" style="margin-top:6px;">${stampsHtml}</div>`:''}
