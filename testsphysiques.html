@@ -187,6 +187,7 @@ thead th.sticky-col{background:#334155;z-index:3;}
 }
 .entry-card-name{font-size:1.3rem;font-weight:800;color:var(--primary-dark);}
 .entry-card-progress{color:var(--muted);font-size:.9rem;margin:4px 0 12px;}
+.entry-card-last{margin-top:10px;padding:8px 12px;background:#f1f5f9;border-radius:10px;font-size:.9rem;}
 .entry-card-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;}
 .entry-card-row label{font-weight:600;}
 .entry-card-row input,.entry-card-row select{font-size:1.1rem;padding:8px 10px;width:110px;text-align:center;}
@@ -510,6 +511,10 @@ function classNumberMap(classe){
   return map;
 }
 let simpleEntrySelection = {}; // clé: classe+'|'+testKey -> id de l'élève sélectionné explicitement
+// Dernière performance enregistrée par fiche de saisie, affichée directement dans la
+// fiche (pas seulement dans le tableau en dessous) car sur iPad la fiche occupe tout
+// l'écran et il fallait scroller jusqu'au tableau pour voir la note.
+let lastRecorded = {}; // clé: classe+'|'+testKey -> {nom, display, note}
 function getEntryStudentId(classe, testKey, students, isFinishedFn){
   const key = classe+'|'+testKey;
   const explicit = simpleEntrySelection[key];
@@ -1569,6 +1574,9 @@ function renderSimpleNumericTest(classe, testKey){
   });
   const thead = `<thead><tr style="background:var(${config.couleur});"><th>Élève</th><th>Performance</th><th>Niveau</th><th>Note</th><th>Rg.Gén</th><th>Rg.Sexe</th><th>Non Noté</th></tr></thead>`;
 
+  const lastInfo = lastRecorded[classe+'|'+testKey];
+  const lastHtml = lastInfo ? `<div class="entry-card-last">Dernier enregistré : <strong>${escapeHtml(lastInfo.nom)}</strong> — ${escapeHtml(lastInfo.display)}${lastInfo.note!=null?` — ${notePill(lastInfo.note)}` : (lastInfo.display==='Absent'?'':' — calcul de la note…')}</div>` : '';
+
   const entryCardHtml = currentStudent ? `
     <div class="entry-card">
       <div class="entry-card-name">${escapeHtml(currentStudent.nomPrenom)} ${sexeIcon(currentStudent.sexe)}</div>
@@ -1582,10 +1590,12 @@ function renderSimpleNumericTest(classe, testKey){
         <button class="btn-danger" onclick="absentEntreeSimple('${escapeHtml(classe)}','${testKey}')">🚫 Absent</button>
       </div>
       <p class="help-text">Astuce : cliquez sur un élève dans la liste pour l'évaluer ou modifier son résultat. La touche Entrée valide et passe à l'élève suivant.</p>
+      ${lastHtml}
     </div>` : `
     <div class="entry-card">
       <div class="entry-card-done">✅ Tous les élèves ont été évalués</div>
       <p class="help-text">Cliquez sur un élève dans la liste pour modifier son résultat.</p>
+      ${lastHtml}
     </div>`;
 
   container.innerHTML = `
@@ -1610,11 +1620,14 @@ async function validerEntreeSimple(classe, testKey){
   const student = students.find(s=>s.id===currentId);
   student.results[testKey] = {absent:false, valeur:val, note:null, _ts:Date.now()};
   delete simpleEntrySelection[classe+'|'+testKey];
+  const lastKey = classe+'|'+testKey;
+  lastRecorded[lastKey] = { nom: student.nomPrenom, display: `${val} ${config.unite}`, note: null };
   saveState();
   renderClassTab(classe);
   const note = await computeNote(classe, config.baremeKey, val, student.sexe);
   if(student.results[testKey] && student.results[testKey].valeur===val){
     student.results[testKey].note = note;
+    if(lastRecorded[lastKey]) lastRecorded[lastKey].note = note;
     saveState();
     renderClassTab(classe);
     syncToSheet(classe);
@@ -1627,7 +1640,9 @@ function absentEntreeSimple(classe, testKey){
   const currentId = getEntryStudentId(classe, testKey, students, isFinished);
   if(!currentId) return;
   const idx = students.findIndex(s=>s.id===currentId);
+  const student = students[idx];
   delete simpleEntrySelection[classe+'|'+testKey];
+  lastRecorded[classe+'|'+testKey] = { nom: student.nomPrenom, display: 'Absent', note: null };
   toggleNonNoteSimple(classe, testKey, idx, 'absent');
 }
 function toggleNonNoteSimple(classe, testKey, idx, value){
@@ -1688,6 +1703,8 @@ function renderSouplesse(classe){
   const thead = `<thead><tr style="background:var(--col-8);"><th>Élève</th><th>Performance</th><th>Niveau</th><th>Note</th><th>Rg.Gén</th><th>Rg.Sexe</th><th>Non Noté</th></tr></thead>`;
 
   const options = SOUPLESSE_LEVELS.map(l=>`<option value="${l.perf}" ${currentResult&&currentResult.perf===l.perf?'selected':''}>${escapeHtml(l.label)}</option>`).join('');
+  const lastInfo = lastRecorded[classe+'|souplesse'];
+  const lastHtml = lastInfo ? `<div class="entry-card-last">Dernier enregistré : <strong>${escapeHtml(lastInfo.nom)}</strong> — ${escapeHtml(lastInfo.display)}${lastInfo.note!=null?` — ${notePill(lastInfo.note)}` : (lastInfo.display==='Absent'?'':' — calcul de la note…')}</div>` : '';
   const entryCardHtml = currentStudent ? `
     <div class="entry-card">
       <div class="entry-card-name">${escapeHtml(currentStudent.nomPrenom)} ${sexeIcon(currentStudent.sexe)}</div>
@@ -1703,10 +1720,12 @@ function renderSouplesse(classe){
         <button class="btn-danger" onclick="absentEntreeSimple('${escapeHtml(classe)}','souplesse')">🚫 Absent</button>
       </div>
       <p class="help-text">Astuce : cliquez sur un élève dans la liste pour l'évaluer ou modifier son résultat.</p>
+      ${lastHtml}
     </div>` : `
     <div class="entry-card">
       <div class="entry-card-done">✅ Tous les élèves ont été évalués</div>
       <p class="help-text">Cliquez sur un élève dans la liste pour modifier son résultat.</p>
+      ${lastHtml}
     </div>`;
 
   container.innerHTML = `
@@ -1726,11 +1745,14 @@ async function validerEntreeSouplesse(classe){
   const student = students.find(s=>s.id===currentId);
   student.results.souplesse = {absent:false, perf, note:null, _ts:Date.now()};
   delete simpleEntrySelection[classe+'|souplesse'];
+  const lastKey = classe+'|souplesse';
+  lastRecorded[lastKey] = { nom: student.nomPrenom, display: TEST_DEFS.souplesse.display({perf}), note: null };
   saveState();
   renderClassTab(classe);
   const note = await computeNote(classe, 'souplesse', perf, student.sexe);
   if(student.results.souplesse && student.results.souplesse.perf===perf){
     student.results.souplesse.note = note;
+    if(lastRecorded[lastKey]) lastRecorded[lastKey].note = note;
     saveState();
     renderClassTab(classe);
     syncToSheet(classe);
@@ -2349,7 +2371,16 @@ function computeRankMap(students, extractValue, higherIsBetter, filterFn){
   const withVal = students.filter(filterFn).map(s=>({id:s.id, value:extractValue(s)}));
   withVal.sort((a,b)=> higherIsBetter ? b.value-a.value : a.value-b.value);
   const map = {};
-  withVal.forEach((s,i)=>map[s.id]=i+1);
+  // Classement par égalité (1,2,2,4...) : deux performances identiques partagent le
+  // même rang, et le rang suivant tient compte du nombre d'ex-aequo (pas juste i+1).
+  let lastValue = null, lastRank = 0;
+  withVal.forEach((s,i)=>{
+    if(lastValue===null || s.value!==lastValue){
+      lastRank = i+1;
+      lastValue = s.value;
+    }
+    map[s.id] = lastRank;
+  });
   return map;
 }
 function computeTestRanks(classe, testKey){
