@@ -1199,8 +1199,12 @@ function renderClassTab(classe){
   const panel = document.getElementById('tab-classe-'+slug(classe));
   if(!panel) return;
   const niveau = getNiveau(classe);
-  const nbA = cl.students.filter(s=>s.group==='A').length;
-  const nbB = cl.students.filter(s=>s.group==='B').length;
+  // Pour les tests d'endurance (groupes), le compteur reflète les élèves présents
+  // (ni absent ni dispensé) pour CE test précis, pas juste l'effectif du groupe.
+  const isEnduranceTest = GROUP_TESTS.includes(cl.testMode);
+  const estPresent = s => !isEnduranceTest || !isNonNote(s.results[cl.testMode]);
+  const nbA = cl.students.filter(s=>s.group==='A' && estPresent(s)).length;
+  const nbB = cl.students.filter(s=>s.group==='B' && estPresent(s)).length;
   const options = TEST_OPTIONS[niveau];
   panel.innerHTML = `
     <div class="card">
@@ -1217,7 +1221,7 @@ function renderClassTab(classe){
           <button class="btn-secondary" onclick="recalculerNotesClasse('${escapeHtml(classe)}')">🔄 Recalculer les notes</button>
         </div>
       </div>
-      ${GROUP_TESTS.includes(cl.testMode) ? `<div class="row-flex"><span class="badge groupA">Groupe A : ${nbA} élève(s)</span><span class="badge groupB">Groupe B : ${nbB} élève(s)</span></div>` : ''}
+      ${isEnduranceTest ? `<div class="row-flex"><span class="badge groupA">Groupe A : ${nbA} élève(s) présent(s)</span><span class="badge groupB">Groupe B : ${nbB} élève(s) présent(s)</span></div>` : ''}
     </div>
     <div id="testContent-${slug(classe)}"></div>
   `;
