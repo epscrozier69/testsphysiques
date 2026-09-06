@@ -1381,9 +1381,10 @@ function renderLLGroupColumn(classe, group, ranks){
         <td>${nonNoteSelect(r, `toggleNonNoteLL('${escapeHtml(classe)}','${s.id}',this.value)`)}</td>
       </tr>`;
   }).join('');
+  const presentCount = students.filter(s=>!isNonNote(s.results.lucLeger)).length;
   return `
     <div class="card">
-      <h3>Groupe ${group} (${students.length})</h3>
+      <h3>Groupe ${group} (${presentCount} présent(s))</h3>
       <div class="table-wrapper compact">
         <table>
           <thead><tr style="background:${group==='A'?'var(--col-1)':'var(--col-2)'};"><th>Élève</th><th>Grp</th><th>Performance</th><th>Niveau</th><th>Note</th><th>Rg.Gén</th><th>Rg.Sexe</th><th>Non Noté</th></tr></thead>
@@ -1980,9 +1981,10 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
         <td>${!done ? nonNoteSelect(r, `toggleNonNoteDemiCooper('${escapeHtml(classe)}','${s.id}',this.value)`) : ''}</td>
       </tr>`;
   }).join('');
+  const presentCount = students.filter(s=>!isNonNote(s.results.demiCooper)).length;
   return `
     <div class="card">
-      <h3>Groupe ${group} (${students.length})</h3>
+      <h3>Groupe ${group} (${presentCount} présent(s))</h3>
       <div class="table-wrapper compact">
         <table>
           <thead><tr style="background:${group==='A'?'var(--col-1)':'var(--col-2)'};"><th>Élève</th><th>Grp</th><th>Tours</th><th>Distance totale</th><th>Niveau</th><th>Note</th><th>Rg.Gén</th><th>Rg.Sexe</th><th>Non Noté</th></tr></thead>
