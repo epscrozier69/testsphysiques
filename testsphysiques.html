@@ -202,6 +202,9 @@ tr.row-current td{outline:2px solid var(--primary);outline-offset:-2px;}
 }
 .dc-tile:active{background:var(--primary-dark);}
 .medal{font-size:1.1rem;margin-right:4px;}
+.podium-garcon,.podium-fille{display:inline-block;padding:2px 9px;border-radius:999px;color:#fff;font-weight:700;}
+.podium-garcon{background:var(--garcon);}
+.podium-fille{background:var(--fille);}
 .ll-columns{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 @media(max-width:820px){.ll-columns{grid-template-columns:1fr;}}
 .ll-live{
@@ -480,29 +483,48 @@ function resetBtn(classe, studentId, testKey){
   return `<button class="reset-icon" onclick="event.stopPropagation();resetResult('${escapeHtml(classe)}','${studentId}','${testKey}')" title="Recommencer">↺</button>`;
 }
 // Colonne "Non Noté" partagée par tous les tests : à la place d'une simple case
-// Absent, un menu déroulant ABS (absent) / DISP (dispensé). Les deux excluent la
-// performance des notes/classements exactement comme le faisait "absent" seul.
+// Absent, un menu déroulant ABS (absent) / DISP (dispensé) / DP (dispense
+// ponctuelle). Les trois excluent la performance des notes/classements exactement
+// comme le faisait "absent" seul. Modifiable à tout moment, même après un résultat
+// déjà enregistré (voir les fonctions toggleNonNote* : elles ne remplacent plus tout
+// l'objet résultat, seulement les indicateurs, pour ne pas effacer une performance
+// déjà saisie si on change d'avis).
 function nonNoteSelect(r, onChangeCall){
-  const val = r&&r.absent ? 'absent' : (r&&r.dispense ? 'dispense' : '');
+  const val = r&&r.absent ? 'absent' : (r&&r.dispense ? 'dispense' : (r&&r.dp ? 'dp' : ''));
   return `<select onclick="event.stopPropagation()" onchange="event.stopPropagation();${onChangeCall}">
     <option value="">—</option>
     <option value="absent" ${val==='absent'?'selected':''}>ABS</option>
     <option value="dispense" ${val==='dispense'?'selected':''}>DISP</option>
+    <option value="dp" ${val==='dp'?'selected':''}>DP</option>
   </select>`;
 }
 function nonNoteText(r){
   if(r && r.absent) return 'Absent';
   if(r && r.dispense) return 'Dispensé';
+  if(r && r.dp) return 'Dispense ponctuelle';
   return null;
 }
-function isNonNote(r){ return !!(r && (r.absent || r.dispense)); }
+function isNonNote(r){ return !!(r && (r.absent || r.dispense || r.dp)); }
+// Pose/retire les indicateurs ABS/DISP/DP sur un résultat SANS écraser le reste
+// (palier, temps, tours, valeur, note, done...) : modifier le statut ne doit jamais
+// faire perdre une performance déjà saisie, y compris après un test déjà terminé.
+function applyNonNoteFlags(existing, value){
+  const base = (existing && typeof existing==='object' && !existing.cleared) ? {...existing} : {};
+  base.absent = value==='absent';
+  base.dispense = value==='dispense';
+  base.dp = value==='dp';
+  base._ts = Date.now();
+  return base;
+}
 function rankGenCell(ranks, studentId){
   const rg = ranks.gen[studentId];
   return rg!=null ? `${medalFor(rg)}${rg}` : '—';
 }
 function rankSexeCell(ranks, studentId, sexe){
   const rs = sexe==='F' ? ranks.F[studentId] : ranks.M[studentId];
-  return rs!=null ? `${medalFor(rs)}${rs}` : '—';
+  if(rs==null) return '—';
+  const podium = rs<=3 ? ` class="${sexe==='F'?'podium-fille':'podium-garcon'}"` : '';
+  return `<span${podium}>${medalFor(rs)}${rs}</span>`;
 }
 function classNumberMap(classe){
   const cl = STATE.classes[classe];
@@ -1466,9 +1488,7 @@ function groupCheckboxes(classe, studentId, group){
 }
 function toggleNonNoteLL(classe, studentId, value){
   const s = STATE.classes[classe].students.find(s=>s.id===studentId);
-  if(value==='absent') s.results.lucLeger = {absent:true, dispense:false, done:false, _ts:Date.now()};
-  else if(value==='dispense') s.results.lucLeger = {absent:false, dispense:true, done:false, _ts:Date.now()};
-  else clearResult(s, 'lucLeger');
+  s.results.lucLeger = applyNonNoteFlags(s.results.lucLeger, value);
   saveState();
   checkAutoStop(classe);
   renderClassTab(classe);
@@ -1673,9 +1693,7 @@ function toggleNonNoteSimple(classe, testKey, idx, value){
   const cl = STATE.classes[classe];
   const students = [...cl.students].sort((a,b)=>a.nomPrenom.localeCompare(b.nomPrenom,'fr'));
   const student = students[idx];
-  if(value==='absent') student.results[testKey] = {absent:true, dispense:false, _ts:Date.now()};
-  else if(value==='dispense') student.results[testKey] = {absent:false, dispense:true, _ts:Date.now()};
-  else clearResult(student, testKey);
+  student.results[testKey] = applyNonNoteFlags(student.results[testKey], value);
   saveState();
   renderClassTab(classe);
   syncToSheet(classe);
@@ -2026,7 +2044,7 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
         <td onclick="event.stopPropagation()">${r&&r.note!=null?notePill(r.note):'—'}${done?resetBtn(classe,s.id,'demiCooper'):''}</td>
         <td>${rankGenCell(ranks,s.id)}</td>
         <td>${rankSexeCell(ranks,s.id,s.sexe)}</td>
-        <td>${!done ? nonNoteSelect(r, `toggleNonNoteDemiCooper('${escapeHtml(classe)}','${s.id}',this.value)`) : ''}</td>
+        <td>${nonNoteSelect(r, `toggleNonNoteDemiCooper('${escapeHtml(classe)}','${s.id}',this.value)`)}</td>
       </tr>`;
   }).join('');
   const presentCount = students.filter(s=>!isNonNote(s.results.demiCooper)).length;
@@ -2170,9 +2188,7 @@ function decrementTour(classe, studentId){
 }
 function toggleNonNoteDemiCooper(classe, studentId, value){
   const s = STATE.classes[classe].students.find(s=>s.id===studentId);
-  if(value==='absent') s.results.demiCooper = {absent:true, dispense:false, done:false, tours:0, _ts:Date.now()};
-  else if(value==='dispense') s.results.demiCooper = {absent:false, dispense:true, done:false, tours:0, _ts:Date.now()};
-  else clearResult(s, 'demiCooper');
+  s.results.demiCooper = applyNonNoteFlags(s.results.demiCooper, value);
   saveState();
   renderClassTab(classe);
   syncToSheet(classe);
@@ -2323,9 +2339,7 @@ function toggleNonNoteVitesse40(classe, studentId, value){
   const cl = STATE.classes[classe];
   const s = cl.students.find(x=>x.id===studentId);
   if(!s) return;
-  if(value==='absent') s.results.vitesse40 = {absent:true, dispense:false, _ts:Date.now()};
-  else if(value==='dispense') s.results.vitesse40 = {absent:false, dispense:true, _ts:Date.now()};
-  else clearResult(s, 'vitesse40');
+  s.results.vitesse40 = applyNonNoteFlags(s.results.vitesse40, value);
   saveState();
   renderClassTab(classe);
   syncToSheet(classe);
@@ -2335,7 +2349,7 @@ function toggleNonNoteVitesse40(classe, studentId, value){
 const TEST_DEFS = {
   lucLeger: {
     label:'Endurance (Luc Léger)', resultsKey:'lucLeger', higherIsBetter:true, unite:'km/h', colorVar:'--col-4',
-    isDone:r=>!!(r&&r.done), isAbsent:r=>isNonNote(r),
+    isDone:r=>!!(r&&r.done&&!isNonNote(r)), isAbsent:r=>isNonNote(r),
     display:r=>`Palier ${r.palier} · ${r.vitesse.toFixed(1)} km/h · ${formatMMSS(r.temps)}`,
     value:r=>r.vitesse*100000+r.temps,
     avgValue:r=>r.vitesse,
@@ -2343,51 +2357,51 @@ const TEST_DEFS = {
   },
   longueur: {
     label:'Longueur', resultsKey:'longueur', higherIsBetter:true, unite:'cm', colorVar:'--col-3',
-    isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>isNonNote(r),
+    isDone:r=>!!(r&&r.valeur!=null&&!isNonNote(r)), isAbsent:r=>isNonNote(r),
     display:r=>`${r.valeur} cm`, value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauFromNote(r.note)
   },
   vitesse: {
     label:'Vitesse 30m', resultsKey:'vitesse', higherIsBetter:false, unite:'s', colorVar:'--col-5',
-    isDone:r=>!!(r&&r.temps!=null), isAbsent:r=>isNonNote(r),
+    isDone:r=>!!(r&&r.temps!=null&&!isNonNote(r)), isAbsent:r=>isNonNote(r),
     display:r=>`${r.temps} s`, value:r=>r.temps, avgValue:r=>r.temps,
     niveau:r=>niveauFromNote(r.note)
   },
   detenteVerticale: {
     label:'Détente verticale', resultsKey:'detenteVerticale', higherIsBetter:true, unite:'cm', colorVar:'--col-6',
-    isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>isNonNote(r),
+    isDone:r=>!!(r&&r.valeur!=null&&!isNonNote(r)), isAbsent:r=>isNonNote(r),
     display:r=>`${r.valeur} cm`, value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauFromNote(r.note)
   },
   pompes: {
     label:'Pompes', resultsKey:'pompes', higherIsBetter:true, unite:'reps', colorVar:'--col-7',
-    isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>isNonNote(r),
+    isDone:r=>!!(r&&r.valeur!=null&&!isNonNote(r)), isAbsent:r=>isNonNote(r),
     display:r=>`${r.valeur} reps`, value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauFromNote(r.note)
   },
   souplesse: {
     label:'Souplesse', resultsKey:'souplesse', higherIsBetter:true, unite:'/5', colorVar:'--col-8',
-    isDone:r=>!!(r&&r.perf!=null), isAbsent:r=>isNonNote(r),
+    isDone:r=>!!(r&&r.perf!=null&&!isNonNote(r)), isAbsent:r=>isNonNote(r),
     display:r=>{ const l=SOUPLESSE_LEVELS.find(x=>x.perf===r.perf); return l?l.label:String(r.perf); },
     value:r=>r.perf, avgValue:r=>r.perf,
     niveau:r=>niveauFromNote(r.note)
   },
   demiCooper: {
     label:'Endurance (Demi-Cooper)', resultsKey:'demiCooper', higherIsBetter:true, unite:'m', colorVar:'--col-4',
-    isDone:r=>!!(r&&r.done), isAbsent:r=>isNonNote(r),
+    isDone:r=>!!(r&&r.done&&!isNonNote(r)), isAbsent:r=>isNonNote(r),
     display:r=>`${r.valeur} m (${r.tours} tour(s) + ${r.distanceSupp||0}m)`,
     value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauFromNote(r.note)
   },
   vitesse40: {
     label:'Vitesse 40m', resultsKey:'vitesse40', higherIsBetter:false, unite:'s', colorVar:'--col-5',
-    isDone:r=>!!(r&&r.temps!=null), isAbsent:r=>isNonNote(r),
+    isDone:r=>!!(r&&r.temps!=null&&!isNonNote(r)), isAbsent:r=>isNonNote(r),
     display:r=>`${r.temps} s`, value:r=>r.temps, avgValue:r=>r.temps,
     niveau:r=>niveauFromNote(r.note)
   },
   detenteHorizontale: {
     label:'Détente horizontale', resultsKey:'detenteHorizontale', higherIsBetter:true, unite:'cm', colorVar:'--col-3',
-    isDone:r=>!!(r&&r.valeur!=null), isAbsent:r=>isNonNote(r),
+    isDone:r=>!!(r&&r.valeur!=null&&!isNonNote(r)), isAbsent:r=>isNonNote(r),
     display:r=>`${r.valeur} cm`, value:r=>r.valeur, avgValue:r=>r.valeur,
     niveau:r=>niveauFromNote(r.note)
   }
