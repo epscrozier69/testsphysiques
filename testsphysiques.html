@@ -141,6 +141,19 @@ select,input[type=number],input[type=text]{
   font-size:.9rem;
   min-height:38px;
 }
+/* Sur PC (Chrome/Edge/Firefox), les flèches natives des champs number prennent
+   trop de place dans les petits champs (ex. mn/s du Luc Léger) et écrasent le
+   chiffre saisi ; iOS ne les affiche pas, d'où la différence d'affichage entre
+   iPad et PC. On les masque partout pour un rendu identique sur les deux. */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{
+  -webkit-appearance:none;
+  margin:0;
+}
+input[type=number]{
+  -moz-appearance:textfield;
+  appearance:textfield;
+}
 .table-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:10px;border:1px solid var(--border);}
 table{border-collapse:collapse;width:100%;font-size:.85rem;min-width:600px;}
 th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;}
