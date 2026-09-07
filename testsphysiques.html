@@ -1922,6 +1922,35 @@ async function setVitesseManuel(classe, idx, value){
 }
 
 /* ===================== DEMI-COOPER (endurance 5-4-3ème) ===================== */
+// Si la taille de piste est corrigée après coup (mauvaise valeur choisie au départ),
+// on recalcule la distance et la note de tous les résultats déjà enregistrés dans
+// cette classe avec la nouvelle taille, plutôt que de laisser les anciens résultats
+// figés sur l'ancienne valeur.
+async function changeTrackSize(classe, sizeStr){
+  const size = parseInt(sizeStr);
+  if(isNaN(size)) return;
+  const cl = STATE.classes[classe];
+  cl.trackSize = size;
+  const toRecalc = cl.students.filter(s=>s.results.demiCooper && s.results.demiCooper.done);
+  toRecalc.forEach(s=>{
+    const r = s.results.demiCooper;
+    r.valeur = (r.tours||0)*size + (r.distanceSupp||0);
+    r.note = null;
+    r._ts = Date.now();
+  });
+  saveState();
+  renderClassTab(classe);
+  for(const s of toRecalc){
+    const valeurAtCall = s.results.demiCooper.valeur;
+    const note = await computeNote(classe, 'endurance', valeurAtCall, s.sexe);
+    if(s.results.demiCooper && s.results.demiCooper.valeur===valeurAtCall){
+      s.results.demiCooper.note = note;
+    }
+  }
+  saveState();
+  renderClassTab(classe);
+  syncToSheet(classe);
+}
 function renderDemiCooper(classe){
   const cl = STATE.classes[classe];
   if(!cl.trackSize){ cl.trackSize = 150; saveState(); }
@@ -1931,7 +1960,7 @@ function renderDemiCooper(classe){
     <div class="card">
       <div class="row-flex">
         <label>Taille de piste :
-          <select ${running?'disabled':''} onchange="STATE.classes['${escapeHtml(classe)}'].trackSize=parseInt(this.value); saveState(); renderClassTab('${escapeHtml(classe)}')">
+          <select ${running?'disabled':''} onchange="changeTrackSize('${escapeHtml(classe)}',this.value)">
             <option value="100" ${cl.trackSize===100?'selected':''}>100 m</option>
             <option value="150" ${cl.trackSize===150?'selected':''}>150 m</option>
           </select>
@@ -1981,7 +2010,7 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
       toursCell = `— <button class="reset-icon" onclick="event.stopPropagation();manualRecordDemiCooper('${escapeHtml(classe)}','${s.id}')" title="Saisir un résultat manuellement (ex. après une erreur ABS/DISP)">✏️ Saisir</button>`;
       distanceTotale = '—';
     } else {
-      toursCell = `${tours} tour(s)${tours>0?` <button class="reset-icon tour-undo-btn" onclick="event.stopPropagation();decrementTour('${escapeHtml(classe)}','${s.id}')" title="Annuler le dernier tour">↺ -1</button>`:''}`;
+      toursCell = `${tours} tour(s)${tours>0?` <button class="reset-icon tour-undo-btn" onclick="event.stopPropagation();decrementTour('${escapeHtml(classe)}','${s.id}')" title="Annuler le dernier tour">↺ -1</button>`:''} <button class="reset-icon" onclick="event.stopPropagation();manualRecordDemiCooper('${escapeHtml(classe)}','${s.id}')" title="Saisir un résultat manuellement">✏️ Saisir</button>`;
       distanceTotale = `${tours*cl.trackSize} m`;
     }
     const nomCell = clickableRow
