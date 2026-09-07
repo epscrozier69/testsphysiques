@@ -517,13 +517,15 @@ function applyNonNoteFlags(existing, value){
   return base;
 }
 function rankGenCell(ranks, studentId){
-  const rg = ranks.gen[studentId];
+  const rg = ranks.gen.map[studentId];
   return rg!=null ? `${medalFor(rg)}${rg}` : '—';
 }
 function rankSexeCell(ranks, studentId, sexe){
-  const rs = sexe==='F' ? ranks.F[studentId] : ranks.M[studentId];
+  const rmap = sexe==='F' ? ranks.F : ranks.M;
+  const rs = rmap.map[studentId];
   if(rs==null) return '—';
-  const podium = rs<=3 ? ` class="${sexe==='F'?'podium-fille':'podium-garcon'}"` : '';
+  const isPodium = rmap.podium.has(studentId);
+  const podium = isPodium ? ` class="${sexe==='F'?'podium-fille':'podium-garcon'}"` : '';
   return `<span${podium}>${medalFor(rs)}${rs}</span>`;
 }
 function classNumberMap(classe){
@@ -2470,7 +2472,12 @@ function computeRankMap(students, extractValue, higherIsBetter, filterFn){
     }
     map[s.id] = lastRank;
   });
-  return map;
+  // Podium = les 3 MEILLEURES VALEURS distinctes (pas les 3 premiers rangs), pour
+  // que tous les ex-aequo sur une de ces 3 valeurs soient mis en avant, même s'ils
+  // sont plus de 3 au total.
+  const top3Values = [...new Set(withVal.map(s=>s.value))].slice(0,3);
+  const podium = new Set(withVal.filter(s=>top3Values.includes(s.value)).map(s=>s.id));
+  return {map, podium};
 }
 function computeTestRanks(classe, testKey){
   const cl = STATE.classes[classe];
