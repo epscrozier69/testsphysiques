@@ -1364,7 +1364,7 @@ function renderLLGroupColumn(classe, group, ranks){
         <input type="number" min="0" step="1" id="ll-temps-min-${slug(classe)}-${s.id}" value="${Math.floor(r.temps/60)}" style="width:40px" onclick="event.stopPropagation()" onchange="editLucLegerTempsParts('${escapeHtml(classe)}','${s.id}')">mn
         <input type="number" min="0" max="59" step="1" id="ll-temps-sec-${slug(classe)}-${s.id}" value="${Math.round(r.temps%60)}" style="width:40px" onclick="event.stopPropagation()" onchange="editLucLegerTempsParts('${escapeHtml(classe)}','${s.id}')">s`;
     } else {
-      resultCell = '—';
+      resultCell = `— <button class="reset-icon" onclick="event.stopPropagation();manualRecordLucLeger('${escapeHtml(classe)}','${s.id}')" title="Saisir un résultat manuellement (ex. après une erreur ABS/DISP)">✏️ Saisir</button>`;
     }
     const nomCell = clickable
       ? `<span class="dc-tile">🏃 ${numMap[s.id]}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</span>`
@@ -1393,6 +1393,25 @@ function renderLLGroupColumn(classe, group, ranks){
       </div>
     </div>
   `;
+}
+// Permet de saisir/corriger manuellement un résultat en dehors d'une course active
+// (ex. un élève marqué ABS/DISP par erreur alors qu'il était présent) : crée un
+// résultat "fait" avec des valeurs de départ, éditables ensuite via le palier/temps.
+async function manualRecordLucLeger(classe, studentId){
+  const cl = STATE.classes[classe];
+  const s = cl.students.find(x=>x.id===studentId);
+  if(!s) return;
+  const entry = PALIER_SCHEDULE[0];
+  s.results.lucLeger = {done:true, absent:false, dispense:false, palier:entry.palier, vitesse:entry.vitesse, temps:0, note:null, _ts:Date.now()};
+  saveState();
+  renderClassTab(classe);
+  const note = await computeNote(classe, 'endurance', entry.palier, s.sexe);
+  if(s.results.lucLeger && s.results.lucLeger.done && s.results.lucLeger.palier===entry.palier){
+    s.results.lucLeger.note = note;
+    saveState();
+    renderClassTab(classe);
+    syncToSheet(classe);
+  }
 }
 async function editLucLegerPalier(classe, studentId, palierStr){
   const palier = parseInt(palierStr);
@@ -1959,7 +1978,7 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
         <input type="number" step="0.1" value="${r.distanceSupp||0}" style="width:55px" onclick="event.stopPropagation()" onchange="editDemiCooperSupp('${escapeHtml(classe)}','${s.id}',this.value)"> m`;
       distanceTotale = `${r.valeur} m`;
     } else if(nonNote){
-      toursCell = '—';
+      toursCell = `— <button class="reset-icon" onclick="event.stopPropagation();manualRecordDemiCooper('${escapeHtml(classe)}','${s.id}')" title="Saisir un résultat manuellement (ex. après une erreur ABS/DISP)">✏️ Saisir</button>`;
       distanceTotale = '—';
     } else {
       toursCell = `${tours} tour(s)${tours>0?` <button class="reset-icon tour-undo-btn" onclick="event.stopPropagation();decrementTour('${escapeHtml(classe)}','${s.id}')" title="Annuler le dernier tour">↺ -1</button>`:''}`;
@@ -1993,6 +2012,24 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
       </div>
     </div>
   `;
+}
+// Permet de saisir/corriger manuellement un résultat en dehors d'une course active
+// (ex. un élève marqué ABS/DISP par erreur alors qu'il était présent) : crée un
+// résultat "fait" avec 0 tour, éditable ensuite via les champs tours/distance.
+async function manualRecordDemiCooper(classe, studentId){
+  const cl = STATE.classes[classe];
+  const s = cl.students.find(x=>x.id===studentId);
+  if(!s) return;
+  s.results.demiCooper = {absent:false, dispense:false, done:true, tours:0, distanceSupp:0, valeur:0, note:null, _ts:Date.now()};
+  saveState();
+  renderClassTab(classe);
+  const note = await computeNote(classe, 'endurance', 0, s.sexe);
+  if(s.results.demiCooper && s.results.demiCooper.done && s.results.demiCooper.valeur===0){
+    s.results.demiCooper.note = note;
+    saveState();
+    renderClassTab(classe);
+    syncToSheet(classe);
+  }
 }
 async function editDemiCooperTours(classe, studentId, val){
   const tours = parseInt(val);
