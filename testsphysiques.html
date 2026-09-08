@@ -182,6 +182,8 @@ thead th.sticky-col{background:#334155;z-index:3;}
 .sexe-icon{font-weight:900;font-size:1rem;}
 .sexe-icon.sexe-F{color:var(--fille);}
 .sexe-icon.sexe-M{color:var(--garcon);}
+.sexe-icon-editable{cursor:pointer;border-bottom:1px dotted currentColor;}
+.sexe-icon-editable:hover{opacity:.7;}
 .compact th,.compact td{padding:4px 6px;font-size:.78rem;}
 #resultatsTable thead th,.stat-table thead th{position:static;}
 .table-wrapper table tbody tr:nth-child(even) td{filter:brightness(0.93);}
@@ -255,6 +257,13 @@ th.fille-head{background:var(--fille);}
 .niveau-S-text{color:var(--niveau-satisfaisant);font-weight:700;}
 .niveau-T-text{color:var(--niveau-tresbon);font-weight:700;}
 .results-avg-row td{font-weight:800;background:#f1f5f9;border-top:2px solid var(--border);}
+.records-top{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 16px;}
+.records-top-card{flex:1;min-width:220px;border-radius:12px;padding:14px;text-align:center;}
+.records-top-garcon{background:var(--col-1-light);}
+.records-top-fille{background:var(--col-3-light);}
+.records-top-label{font-weight:700;font-size:.85rem;color:var(--muted);margin-bottom:6px;}
+.records-top-name{font-size:1.15rem;font-weight:800;}
+.records-top-value{font-size:1.3rem;font-weight:900;margin-top:4px;}
 .sort-arrow{font-size:.7rem;opacity:.8;}
 footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:20px;}
 @media(max-width:600px){
@@ -309,6 +318,11 @@ footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:
       </div>
       <div id="statsContent"></div>
     </div>
+  </section>
+
+  <section id="tab-records" class="tab-panel">
+    <div class="card"><h2>🏆 Records</h2></div>
+    <div id="recordsContent"></div>
   </section>
 
   <section id="tab-bareme-6eme" class="tab-panel">
@@ -475,8 +489,46 @@ function notePill(note){
   return `<span class="note-badge">${note}/20</span>`;
 }
 function bgLight(colorVar){ return `background:var(${colorVar}-light);`; }
-function sexeIcon(sexe){
-  return sexe==='F' ? `<span class="sexe-icon sexe-F" title="Fille">♀</span>` : `<span class="sexe-icon sexe-M" title="Garçon">♂</span>`;
+function sexeIcon(sexe, classe, studentId){
+  const cls = sexe==='F' ? 'sexe-F' : 'sexe-M';
+  const symbol = sexe==='F' ? '♀' : '♂';
+  const label = sexe==='F' ? 'Fille' : 'Garçon';
+  if(classe && studentId){
+    return `<span class="sexe-icon ${cls} sexe-icon-editable" title="${label} — cliquer si erreur de sexe" onclick="event.stopPropagation();correctStudentSexe('${escapeHtml(classe)}','${studentId}')">${symbol}</span>`;
+  }
+  return `<span class="sexe-icon ${cls}" title="${label}">${symbol}</span>`;
+}
+// Corrige le sexe d'un élève (erreur de saisie/import) sans effacer ses performances
+// déjà enregistrées : seules la note (dépendante du barème filles/garçons) et le
+// classement (calculé en direct depuis s.sexe) sont recalculés.
+async function correctStudentSexe(classe, studentId){
+  const cl = STATE.classes[classe];
+  const s = cl && cl.students.find(x=>x.id===studentId);
+  if(!s) return;
+  const newSexe = s.sexe==='F' ? 'M' : 'F';
+  const ok = confirm(`Corriger le sexe de ${s.nomPrenom} : ${s.sexe==='F'?'Fille':'Garçon'} → ${newSexe==='F'?'Fille':'Garçon'} ?\n\nLes performances déjà enregistrées sont conservées. La note et le classement seront recalculés.`);
+  if(!ok) return;
+  s.sexe = newSexe;
+  await recalculerNotesEleve(classe, studentId);
+}
+async function recalculerNotesEleve(classe, studentId){
+  const cl = STATE.classes[classe];
+  const s = cl && cl.students.find(x=>x.id===studentId);
+  if(!s) return;
+  const niveau = getNiveau(classe);
+  const testKeys = NIVEAU_TESTS[niveau];
+  for(const testKey of testKeys){
+    const def = TEST_DEFS[testKey];
+    const r = s.results[testKey];
+    if(!def.isDone(r)) continue;
+    const cfg = RECALC_NOTE_CONFIG[testKey];
+    const val = cfg.getValue(r);
+    const note = await computeNote(classe, cfg.baremeKey, val, s.sexe);
+    if(note!=null){ r.note = note; r._ts = Date.now(); }
+  }
+  saveState();
+  renderClassTab(classe);
+  syncToSheet(classe);
 }
 function clearResult(student, testKey){
   // Marqueur non-null distinct de "jamais testé" : une synchronisation ne doit
@@ -1118,6 +1170,12 @@ function renderMainTabs(){
   statBtn.onclick=()=>switchTab('statistiques');
   nav.appendChild(statBtn);
 
+  const recordsBtn = document.createElement('button');
+  recordsBtn.className='tab-btn'; recordsBtn.dataset.tab='records';
+  recordsBtn.textContent='🏆 Records';
+  recordsBtn.onclick=()=>switchTab('records');
+  nav.appendChild(recordsBtn);
+
   [['bareme-6eme','📋 Barème 6ème'],['bareme-5eme','📋 Barème 5ème'],['bareme-4eme3eme','📋 Barème 4-3ème']].forEach(([tabId,label],i)=>{
     const btn = document.createElement('button');
     btn.className='tab-btn'+(i===0?' tab-group-gap':'');
@@ -1197,6 +1255,7 @@ function switchTab(tabId){
   qsa('.tab-panel').forEach(p=>p.classList.toggle('active', p.id==='tab-'+tabId));
   if(tabId==='resultats') renderResultats();
   if(tabId==='statistiques') renderStatistiques();
+  if(tabId==='records') renderRecords();
   if(tabId==='bareme-6eme') renderBaremeTab('6eme');
   if(tabId==='bareme-5eme') renderBaremeTab('5eme');
   if(tabId==='bareme-4eme3eme') renderBaremeTab('4eme3eme');
@@ -1405,8 +1464,8 @@ function renderLLGroupColumn(classe, group, ranks){
       resultCell = `— <button class="reset-icon" onclick="event.stopPropagation();manualRecordLucLeger('${escapeHtml(classe)}','${s.id}')" title="Saisir un résultat manuellement (ex. après une erreur ABS/DISP)">✏️ Saisir</button>`;
     }
     const nomCell = clickable
-      ? `<span class="dc-tile">🏃 ${numMap[s.id]}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</span>`
-      : `${numMap[s.id]}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}`;
+      ? `<span class="dc-tile">🏃 ${numMap[s.id]}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe, classe, s.id)}</span>`
+      : `${numMap[s.id]}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe, classe, s.id)}`;
     return `
       <tr class="${rowClass} ${clickable?'row-clickable':''}" style="${bgLight('--col-4')}" ${clickable?`onclick="recordLucLegerResult('${escapeHtml(classe)}','${s.id}')"`:''}>
         <td>${nomCell}</td>
@@ -1624,7 +1683,7 @@ function renderSimpleNumericTest(classe, testKey){
     else perfCell = 'en attente';
     return `
       <tr class="${isNonNote(r)?'row-absent':''} ${isCurrent?'row-current':''} row-clickable" style="${bgLight(config.couleur)}" onclick="selectEntryStudent('${escapeHtml(classe)}','${testKey}','${s.id}')">
-        <td>${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
+        <td>${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe, classe, s.id)}</td>
         <td>${perfCell}</td>
         <td>${niveau?niveauPill(niveau):(isNonNote(r)?niveauPill(null):'—')}</td>
         <td>${r&&r.note!=null?notePill(r.note):'—'}${r&&r.valeur!=null?resetBtn(classe,s.id,testKey):''}</td>
@@ -1638,12 +1697,12 @@ function renderSimpleNumericTest(classe, testKey){
   const lastInfo = lastRecorded[classe+'|'+testKey];
   const lastHtml = lastInfo ? `<div class="entry-card-last">Dernier enregistré : <strong>${escapeHtml(lastInfo.nom)}</strong> — ${escapeHtml(lastInfo.display)}${lastInfo.note!=null?` — ${notePill(lastInfo.note)}` : (lastInfo.display==='Absent'?'':' — calcul de la note…')}</div>` : '';
   const nextStudent = currentStudent ? students.find(s=>s.id!==currentId && !isFinished(s.results[testKey])) : null;
-  const nextHtml = nextStudent ? `<div class="entry-card-next">Élève à se préparer : <strong>${escapeHtml(nextStudent.nomPrenom)}</strong> ${sexeIcon(nextStudent.sexe)}</div>` : '';
+  const nextHtml = nextStudent ? `<div class="entry-card-next">Élève à se préparer : <strong>${escapeHtml(nextStudent.nomPrenom)}</strong> ${sexeIcon(nextStudent.sexe, classe, nextStudent.id)}</div>` : '';
 
   const entryCardHtml = currentStudent ? `
     <div class="entry-card">
       ${lastHtml}
-      <div class="entry-card-name">${escapeHtml(currentStudent.nomPrenom)} ${sexeIcon(currentStudent.sexe)}</div>
+      <div class="entry-card-name">${escapeHtml(currentStudent.nomPrenom)} ${sexeIcon(currentStudent.sexe, classe, currentStudent.id)}</div>
       <div class="entry-card-progress">${doneCount}/${students.length} élève(s) testé(s)</div>
       <div class="entry-card-row">
         <label>${def.label} (${config.unite}) :
@@ -1752,7 +1811,7 @@ function renderSouplesse(classe){
     else perfCell = 'en attente';
     return `
       <tr class="${isNonNote(r)?'row-absent':''} ${isCurrent?'row-current':''} row-clickable" style="${bgLight('--col-8')}" onclick="selectEntryStudent('${escapeHtml(classe)}','souplesse','${s.id}')">
-        <td>${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</td>
+        <td>${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe, classe, s.id)}</td>
         <td>${perfCell}</td>
         <td>${niveau?niveauPill(niveau):(isNonNote(r)?niveauPill(null):'—')}</td>
         <td>${r&&r.note!=null?notePill(r.note):'—'}${r&&r.perf!=null?resetBtn(classe,s.id,'souplesse'):''}</td>
@@ -1767,11 +1826,11 @@ function renderSouplesse(classe){
   const lastInfo = lastRecorded[classe+'|souplesse'];
   const lastHtml = lastInfo ? `<div class="entry-card-last">Dernier enregistré : <strong>${escapeHtml(lastInfo.nom)}</strong> — ${escapeHtml(lastInfo.display)}${lastInfo.note!=null?` — ${notePill(lastInfo.note)}` : (lastInfo.display==='Absent'?'':' — calcul de la note…')}</div>` : '';
   const nextStudent = currentStudent ? students.find(s=>s.id!==currentId && !isFinished(s.results.souplesse)) : null;
-  const nextHtml = nextStudent ? `<div class="entry-card-next">Élève à se préparer : <strong>${escapeHtml(nextStudent.nomPrenom)}</strong> ${sexeIcon(nextStudent.sexe)}</div>` : '';
+  const nextHtml = nextStudent ? `<div class="entry-card-next">Élève à se préparer : <strong>${escapeHtml(nextStudent.nomPrenom)}</strong> ${sexeIcon(nextStudent.sexe, classe, nextStudent.id)}</div>` : '';
   const entryCardHtml = currentStudent ? `
     <div class="entry-card">
       ${lastHtml}
-      <div class="entry-card-name">${escapeHtml(currentStudent.nomPrenom)} ${sexeIcon(currentStudent.sexe)}</div>
+      <div class="entry-card-name">${escapeHtml(currentStudent.nomPrenom)} ${sexeIcon(currentStudent.sexe, classe, currentStudent.id)}</div>
       <div class="entry-card-progress">${doneCount}/${students.length} élève(s) testé(s)</div>
       <div class="entry-card-row">
         <label>Souplesse :
@@ -1839,7 +1898,7 @@ function renderVitesse(classe){
     const isSelected = s.id===selId;
     return `
       <tr class="${isNonNote(r)?'row-absent':''} ${isSelected?'row-current':''} row-clickable" style="${bgLight('--col-5')}" onclick="selectVitesseStudent('${escapeHtml(classe)}','${s.id}')">
-        <td>${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)} ${isSelected?'👉':''}</td>
+        <td>${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe, classe, s.id)} ${isSelected?'👉':''}</td>
         <td>
           <input type="number" step="0.01" value="${r&&r.temps!=null?r.temps:''}" placeholder="sec" style="width:70px;"
             onclick="event.stopPropagation()"
@@ -2054,8 +2113,8 @@ function renderDemiCooperGroupColumn(classe, group, ranks){
       distanceTotale = `${tours*cl.trackSize} m`;
     }
     const nomCell = clickableRow
-      ? `<span class="dc-tile">🏃 ${numMap[s.id]}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</span>`
-      : `${numMap[s.id]}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}`;
+      ? `<span class="dc-tile">🏃 ${numMap[s.id]}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe, classe, s.id)}</span>`
+      : `${numMap[s.id]}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe, classe, s.id)}`;
     return `
       <tr class="${nonNote?'row-absent':(done?'row-done':'')} ${clickableRow?'row-clickable':''}" style="${bgLight('--col-4')}" ${clickableRow?`onclick="incrementTour('${escapeHtml(classe)}','${s.id}')"`:''}>
         <td>${nomCell}</td>
@@ -2318,8 +2377,8 @@ function renderVitesse40Roster(classe, students){
     const niveau = r && !isNonNote(r) && r.temps!=null ? niveauFromNote(r.note) : null;
     const clickable = pending>0 && !r;
     const nomCell = clickable
-      ? `<span class="dc-tile">🏁 ${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}</span>`
-      : `${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe)}`;
+      ? `<span class="dc-tile">🏁 ${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe, classe, s.id)}</span>`
+      : `${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe, classe, s.id)}`;
     let valeurCell;
     if(r && r.temps!=null){
       valeurCell = `<input type="number" step="0.01" value="${r.temps}" style="width:70px;" ${isNonNote(r)?'disabled':''} onclick="event.stopPropagation()" onchange="setVitesse40Manuel('${escapeHtml(classe)}','${s.id}',this.value)">`;
@@ -2474,7 +2533,7 @@ function buildResultColumns(niveau){
     {key:'total', label:'Total /120', colorVar:'--col-1'},
     {key:'moyenne', label:'Moyenne /20', colorVar:'--col-1'}
   ];
-  return base.concat(testCols).concat(summaryCols);
+  return base.concat(summaryCols).concat(testCols);
 }
 let resultatsSort = {key:'nomPrenom', dir:'asc'};
 
@@ -2564,6 +2623,8 @@ function renderResultats(){
   let row1 = `<th class="sticky-col" style="background:var(--col-1);" rowspan="2" onclick="onSortResultats('nomPrenom')">Nom ${sortArrow('nomPrenom')}</th>`;
   row1 += `<th style="background:var(--col-2);" rowspan="2" onclick="onSortResultats('classe')">Classe ${sortArrow('classe')}</th>`;
   row1 += `<th style="background:var(--col-3);" rowspan="2" onclick="onSortResultats('sexe')">Sexe ${sortArrow('sexe')}</th>`;
+  row1 += `<th style="background:var(--col-1);" rowspan="2" onclick="onSortResultats('total')">Total /120 ${sortArrow('total')}</th>`;
+  row1 += `<th style="background:var(--col-1);" rowspan="2" onclick="onSortResultats('moyenne')">Moyenne /20 ${sortArrow('moyenne')}</th>`;
   let row2 = '';
   NIVEAU_TESTS[niveau].forEach(testKey=>{
     const def = TEST_DEFS[testKey];
@@ -2573,8 +2634,6 @@ function renderResultats(){
     row2 += `<th style="background:var(${colorVar});" onclick="onSortResultats('${testKey}_niveau')">Niveau ${sortArrow(testKey+'_niveau')}</th>`;
     row2 += `<th style="background:var(${colorVar});" onclick="onSortResultats('${testKey}_note')">Note ${sortArrow(testKey+'_note')}</th>`;
   });
-  row1 += `<th style="background:var(--col-1);" rowspan="2" onclick="onSortResultats('total')">Total /120 ${sortArrow('total')}</th>`;
-  row1 += `<th style="background:var(--col-1);" rowspan="2" onclick="onSortResultats('moyenne')">Moyenne /20 ${sortArrow('moyenne')}</th>`;
   const thead = `<thead><tr>${row1}</tr><tr>${row2}</tr></thead>`;
 
   const tbody = '<tbody>'+rows.map(r=>{
@@ -2590,7 +2649,7 @@ function renderResultats(){
     }).join('')+'</tr>';
   }).join('')+'</tbody>';
 
-  let tfoot = `<tfoot><tr class="results-avg-row"><td class="sticky-col">Moyenne de la classe</td><td></td><td></td>`;
+  let tfoot = `<tfoot><tr class="results-avg-row"><td class="sticky-col">Moyenne de la classe</td><td></td><td></td><td></td><td></td>`;
   NIVEAU_TESTS[niveau].forEach(testKey=>{
     const def = TEST_DEFS[testKey];
     const { avgValue, avgNote } = computeClassAverage(classe, testKey);
@@ -2598,7 +2657,7 @@ function renderResultats(){
     tfoot += `<td>—</td>`;
     tfoot += `<td>${avgNote!=null?avgNote+'/20':'—'}</td>`;
   });
-  tfoot += `<td></td><td></td></tr></tfoot>`;
+  tfoot += `</tr></tfoot>`;
 
   table.innerHTML = thead+tbody+tfoot;
 }
@@ -2673,6 +2732,105 @@ function renderStatistiques(){
     statTable('📊 Général', 'general', 'general-head') +
     statTable('♀ Filles', 'filles', 'fille-head') +
     statTable('♂ Garçons', 'garcons', 'garcon-head');
+}
+
+/* ===================== RECORDS ===================== */
+// 4ème et 3ème partagent le même barème ('4eme3eme') mais restent 2 niveaux
+// distincts pour les records (classes/élèves séparés par niveau réel, pas par
+// bucket de barème).
+const RECORDS_GRADES = [
+  {digit:6, niveau:'6eme', label:'6ème'},
+  {digit:5, niveau:'5eme', label:'5ème'},
+  {digit:4, niveau:'4eme3eme', label:'4ème'},
+  {digit:3, niveau:'4eme3eme', label:'3ème'}
+];
+// Renvoie la (les, en cas d'ex-aequo) meilleure(s) entrée(s) d'une liste selon
+// une fonction de valeur, en tenant compte du sens de la performance (temps :
+// plus petit = meilleur ; distance/note : plus grand = meilleur).
+function bestByValue(list, valueFn, higherIsBetter){
+  if(list.length===0) return {bestVal:null, winners:[]};
+  let bestVal = null;
+  list.forEach(item=>{
+    const v = valueFn(item);
+    if(bestVal===null || (higherIsBetter ? v>bestVal : v<bestVal)) bestVal = v;
+  });
+  const winners = list.filter(item=>valueFn(item)===bestVal);
+  return {bestVal, winners};
+}
+function renderRecords(){
+  const container = qs('#recordsContent');
+  if(STATE.order.length===0){ container.innerHTML = '<p class="help-text">Importez d\'abord une classe.</p>'; return; }
+  container.innerHTML = RECORDS_GRADES.map(g=>{
+    const classes = STATE.order.filter(c=>classeNiveauNum(c)===g.digit);
+    if(classes.length===0){
+      return `<div class="card"><h3>${g.label}</h3><p class="help-text">Aucune classe ${g.label} importée.</p></div>`;
+    }
+    const testKeys = NIVEAU_TESTS[g.niveau];
+
+    // Meilleur garçon / meilleure fille du niveau (total /120) : seulement parmi
+    // les élèves ayant terminé les 6 épreuves du niveau, sinon un total partiel
+    // (ex. une seule très bonne note) fausserait le classement sur 120.
+    const totauxF = [], totauxM = [];
+    classes.forEach(classe=>{
+      buildResultRows(classe).forEach(row=>{
+        const complet = testKeys.every(tk=>typeof row[tk+'_note']==='number');
+        if(!complet) return;
+        const entry = {nomPrenom:row.nomPrenom, classe:row.classe, total:row.total};
+        (row.sexe==='F' ? totauxF : totauxM).push(entry);
+      });
+    });
+    const topGarcon = bestByValue(totauxM, e=>e.total, true);
+    const topFille = bestByValue(totauxF, e=>e.total, true);
+    const topCard = (label, cls, top) => `
+      <div class="records-top-card ${cls}">
+        <div class="records-top-label">${label} (total /120)</div>
+        ${top.winners.length
+          ? `<div class="records-top-name">${top.winners.map(e=>`${escapeHtml(e.nomPrenom)} (${escapeHtml(e.classe)})`).join(' / ')}</div><div class="records-top-value">${top.bestVal}/120</div>`
+          : `<div class="help-text">Aucun élève n'a encore terminé les ${testKeys.length} épreuves.</div>`}
+      </div>`;
+
+    const testRows = testKeys.map(testKey=>{
+      const def = TEST_DEFS[testKey];
+      // Meilleure classe : moyenne des notes de la classe sur ce test.
+      const classAverages = classes
+        .map(classe=>({classe, avgNote:computeClassAverage(classe, testKey).avgNote}))
+        .filter(x=>x.avgNote!=null);
+      const bestClasse = bestByValue(classAverages, x=>x.avgNote, true);
+      const classeCell = bestClasse.winners.length
+        ? `${bestClasse.winners.map(x=>escapeHtml(x.classe)).join(' / ')} <span class="help-text">(${bestClasse.bestVal}/20 de moy.)</span>`
+        : '—';
+
+      // Meilleure fille / meilleur garçon : sur la performance brute, comme le
+      // classement Rg.Sexe (même fonctions value/higherIsBetter que le tri).
+      const filles = [], garcons = [];
+      classes.forEach(classe=>{
+        STATE.classes[classe].students.forEach(s=>{
+          const r = s.results[def.resultsKey];
+          if(!def.isDone(r)) return;
+          (s.sexe==='F' ? filles : garcons).push({s, r, classe});
+        });
+      });
+      const bestFille = bestByValue(filles, x=>def.value(x.r), def.higherIsBetter);
+      const bestGarcon = bestByValue(garcons, x=>def.value(x.r), def.higherIsBetter);
+      const perfCell = list => list.winners.length
+        ? list.winners.map(x=>`${escapeHtml(x.s.nomPrenom)} (${escapeHtml(x.classe)}) — ${escapeHtml(def.display(x.r))}`).join('<br>')
+        : '—';
+
+      return `<tr style="${bgLight(def.colorVar)}"><td>${def.label}</td><td>${classeCell}</td><td>${perfCell(bestFille)}</td><td>${perfCell(bestGarcon)}</td></tr>`;
+    }).join('');
+
+    const thead = `<thead><tr style="background:var(--col-1);"><th>Test</th><th>Meilleure classe</th><th>♀ Meilleure fille</th><th>♂ Meilleur garçon</th></tr></thead>`;
+
+    return `
+      <div class="card">
+        <h3>${g.label}</h3>
+        <div class="records-top">
+          ${topCard('🥇 Meilleur garçon', 'records-top-garcon', topGarcon)}
+          ${topCard('🥇 Meilleure fille', 'records-top-fille', topFille)}
+        </div>
+        <div class="table-wrapper compact"><table>${thead}<tbody>${testRows}</tbody></table></div>
+      </div>`;
+  }).join('');
 }
 
 /* ===================== ONGLETS BARÈME ===================== */
