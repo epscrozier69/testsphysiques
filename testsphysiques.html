@@ -2397,8 +2397,12 @@ function renderVitesse40Roster(classe, students){
     let valeurCell;
     if(r && r.temps!=null){
       valeurCell = `<input type="number" step="0.01" value="${r.temps}" style="width:70px;" ${isNonNote(r)?'disabled':''} onclick="event.stopPropagation()" onchange="setVitesse40Manuel('${escapeHtml(classe)}','${s.id}',this.value)">`;
-    } else {
+    } else if(isNonNote(r)){
       valeurCell = '—';
+    } else {
+      // Saisie manuelle possible à tout moment, sans passer par le chrono
+      // (ex. temps pris avec un chrono externe, ou rattrapage après coup).
+      valeurCell = `<input type="number" step="0.01" placeholder="sec" style="width:70px;" onclick="event.stopPropagation()" onchange="setVitesse40Manuel('${escapeHtml(classe)}','${s.id}',this.value)">`;
     }
     return `
       <tr class="${isNonNote(r)?'row-absent':''} ${clickable?'row-clickable':''}" style="${bgLight('--col-5')}" ${clickable?`onclick="assignVitesse40('${escapeHtml(classe)}','${s.id}')"`:''}>
@@ -2931,7 +2935,7 @@ function renderRecords(){
         .filter(x=>x.avgNote!=null);
       const bestClasse = bestByValue(classAverages, x=>x.avgNote, true);
       const classeCell = bestClasse.winners.length
-        ? `${escapeHtml(bestClasse.winners.map(x=>x.classe).join(' / '))} <span class="help-text">(${bestClasse.bestVal}/20 de moy.)</span>`
+        ? `${escapeHtml(bestClasse.winners.map(x=>x.classe).join(' / '))} <span class="help-text">(${bestClasse.bestVal}/20)</span>`
         : '—';
 
       const filles = [], garcons = [];
