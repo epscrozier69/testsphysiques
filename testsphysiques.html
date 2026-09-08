@@ -269,8 +269,8 @@ th.fille-head{background:var(--fille);}
 .records-holder-new{color:#dc2626;}
 .records-annee{font-size:.66rem;color:var(--muted);margin-top:2px;}
 .records-annee-inline{font-size:.63rem;color:var(--muted);}
-.records-row-label{background:#e5e7eb;font-weight:700;font-size:.72rem;text-align:left;}
-.records-champion-label{background:#e5e7eb;font-weight:800;text-align:left;vertical-align:middle;font-size:.75rem;}
+.records-row-label{background:#e5e7eb;font-weight:700;font-size:.72rem;text-align:left;white-space:normal;}
+.records-section-title{background:#cbd5e1;font-weight:800;font-size:.8rem;text-align:left;padding-left:8px;}
 .records-champion-input{width:100%;border:1px solid var(--border);border-radius:6px;padding:3px 5px;font-size:.75rem;}
 .sort-arrow{font-size:.7rem;opacity:.8;}
 footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:20px;}
@@ -2942,18 +2942,25 @@ function renderRecords(){
       const perfCell = list => {
         if(!list.winners.length) return '—';
         const names = list.winners.map(x=>`<div>${escapeHtml(x.s.nomPrenom)} (${escapeHtml(x.classe)})</div>`).join('');
-        return `${names}<div class="records-perf-value">${escapeHtml(def.display(list.winners[0].r))}</div>`;
+        // Souplesse : la note (ex. "18/20") est bien plus courte que le libellé
+        // du niveau ("Main à plat au sol pendant 10sec") pour un texte compact.
+        const r0 = list.winners[0].r;
+        const perfText = testKey==='souplesse' ? `${r0.note!=null?r0.note:'—'}/20` : def.display(r0);
+        return `${names}<div class="records-perf-value">${escapeHtml(perfText)}</div>`;
       };
       return {classeCell, filleCell:perfCell(bestFille), garconCell:perfCell(bestGarcon)};
     });
 
-    const champRowspan = 5;
-    const champLabelCell = `<td class="records-champion-label" rowspan="${champRowspan}">Champion de l'année<br>${currentSchoolYear()}</td>`;
-    // colgroup plutôt que nth-child : avec le rowspan de la colonne "Champion
-    // de l'année", l'index des <td> n'est pas le même sur toutes les lignes,
-    // donc seul un <col> positionnel garde des largeurs de colonne stables.
-    const testColWidth = (100-9-13)/testKeys.length;
-    const colgroup = `<colgroup><col style="width:9%"><col style="width:13%">${testKeys.map(()=>`<col style="width:${testColWidth.toFixed(2)}%">`).join('')}</colgroup>`;
+    // Une seule colonne d'étiquette (pas 2) : sur iPad (Safari), le rowspan de
+    // la colonne "Champion de l'année" combiné à table-layout:fixed + colgroup
+    // faisait déborder/chevaucher le texte entre colonnes (bug WebKit connu :
+    // rowspan qui décale l'index des <td> sur les lignes suivantes). Le titre
+    // "Champion de l'année" devient une ligne pleine largeur au-dessus, comme
+    // "Recordman de Joliot", ce qui évite complètement le rowspan.
+    const labelWidth = 15;
+    const testColWidth = (100-labelWidth)/testKeys.length;
+    const colgroup = `<colgroup><col style="width:${labelWidth}%">${testKeys.map(()=>`<col style="width:${testColWidth.toFixed(2)}%">`).join('')}</colgroup>`;
+    const nCols = 1+testKeys.length;
 
     return `
       <div class="card">
@@ -2961,10 +2968,11 @@ function renderRecords(){
         <div class="table-wrapper">
           <table class="records-table">
             ${colgroup}
-            <thead><tr><th></th><th></th>${headerCells}</tr></thead>
+            <thead><tr><th></th>${headerCells}</tr></thead>
             <tbody>
-              <tr><td colspan="2" class="records-recordman-label">Recordman de Joliot</td>${recordCells}</tr>
-              <tr>${champLabelCell}<td class="records-row-label">Classe (moyenne de classe)</td>${testRows.map(r=>`<td>${r.classeCell}</td>`).join('')}</tr>
+              <tr><td class="records-recordman-label">Recordman de Joliot</td>${recordCells}</tr>
+              <tr><td colspan="${nCols}" class="records-section-title">Champion de l'année ${currentSchoolYear()}</td></tr>
+              <tr><td class="records-row-label">Classe (moyenne de classe)</td>${testRows.map(r=>`<td>${r.classeCell}</td>`).join('')}</tr>
               <tr><td class="records-row-label">Meilleure performance fille</td>${testRows.map(r=>`<td>${r.filleCell}</td>`).join('')}</tr>
               <tr><td class="records-row-label">Meilleure performance garçon</td>${testRows.map(r=>`<td>${r.garconCell}</td>`).join('')}</tr>
               <tr><td class="records-row-label">Sportive de l'année :</td><td colspan="${testKeys.length}"><input type="text" class="records-champion-input" placeholder="${escapeHtml(autoSportive||'—')}" value="${escapeHtml(ov.sportive||'')}" onchange="setChampionOverride(${g.digit},'sportive',this.value)"></td></tr>
