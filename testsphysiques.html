@@ -2316,7 +2316,7 @@ function renderVitesse40(classe){
         ${(running || pending>0) ? `<button class="btn-secondary" onclick="restartVitesse40Heat('${escapeHtml(classe)}')">🔄 Recommencer (faux départ)</button>` : ''}
       </div>
       ${stampsHtml?`<div class="row-flex" style="margin-top:6px;">${stampsHtml}</div>`:''}
-      <p class="help-text">${pending>0 ? `Cliquez sur ${pending} élève(s) dans la liste ci-dessous, dans l'ordre exact d'arrivée, pour leur attribuer un temps.` : "Cliquez « Départ commun », puis « Arrivée » à chaque franchissement de ligne (jusqu'à 3 coureurs). En cas de faux départ, « Recommencer » annule la course en cours."}</p>
+      ${pending>0 ? `<p class="help-text">Cliquez sur ${pending} élève(s) dans la liste ci-dessous, dans l'ordre exact d'arrivée, pour leur attribuer un temps.</p>` : ''}
     </div>
     <div id="v40-roster-${slug(classe)}"></div>
   `;
@@ -2397,11 +2397,13 @@ function renderVitesse40Roster(classe, students){
     let valeurCell;
     if(r && r.temps!=null){
       valeurCell = `<input type="number" step="0.01" value="${r.temps}" style="width:70px;" ${isNonNote(r)?'disabled':''} onclick="event.stopPropagation()" onchange="setVitesse40Manuel('${escapeHtml(classe)}','${s.id}',this.value)">`;
-    } else if(isNonNote(r)){
+    } else if(isNonNote(r) || clickable){
+      // Pendant une volée en cours (élève à affecter par clic sur son nom),
+      // pas de champ de saisie manuelle ici : il ferait doublon/gênerait le clic.
       valeurCell = '—';
     } else {
-      // Saisie manuelle possible à tout moment, sans passer par le chrono
-      // (ex. temps pris avec un chrono externe, ou rattrapage après coup).
+      // Hors volée en cours : saisie manuelle possible à tout moment, sans
+      // passer par le chrono (ex. temps pris avec un chrono externe).
       valeurCell = `<input type="number" step="0.01" placeholder="sec" style="width:70px;" onclick="event.stopPropagation()" onchange="setVitesse40Manuel('${escapeHtml(classe)}','${s.id}',this.value)">`;
     }
     return `
@@ -2419,8 +2421,11 @@ function renderVitesse40Roster(classe, students){
   container.innerHTML = singleColumnBlock(thead, rowsArr, 7) + `<div class="card">${classAverageHtml(classe, 'vitesse40')}</div>`;
 }
 async function setVitesse40Manuel(classe, studentId, value){
-  const val = parseFloat(value);
-  if(isNaN(val)) return;
+  const parsed = parseFloat(value);
+  if(isNaN(parsed)) return;
+  // Même précision que le chrono (Math.round(elapsed*100)/100) : toujours 2
+  // décimales, que le temps vienne du chrono ou d'une saisie manuelle.
+  const val = Math.round(parsed*100)/100;
   const cl = STATE.classes[classe];
   const s = cl.students.find(x=>x.id===studentId);
   if(!s) return;
