@@ -200,8 +200,9 @@ thead th.sticky-col{background:#334155;z-index:3;}
 }
 .entry-card-name{font-size:1.3rem;font-weight:800;color:var(--primary-dark);}
 .entry-card-progress{color:var(--muted);font-size:.9rem;margin:4px 0 12px;}
-.entry-card-last{margin-top:10px;padding:8px 12px;background:#f1f5f9;border-radius:10px;font-size:.9rem;}
+.entry-card-last{margin-bottom:10px;padding:8px 12px;background:#f1f5f9;border-radius:10px;font-size:.9rem;}
 .entry-card-last .note-badge{font-size:1.3rem;padding:3px 14px;}
+.entry-card-next{margin-top:10px;padding:8px 12px;background:#eef2ff;border-radius:10px;font-size:.9rem;}
 .entry-card-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;}
 .entry-card-row label{font-weight:600;}
 .entry-card-row input,.entry-card-row select{font-size:1.1rem;padding:8px 10px;width:110px;text-align:center;}
@@ -1636,9 +1637,12 @@ function renderSimpleNumericTest(classe, testKey){
 
   const lastInfo = lastRecorded[classe+'|'+testKey];
   const lastHtml = lastInfo ? `<div class="entry-card-last">Dernier enregistré : <strong>${escapeHtml(lastInfo.nom)}</strong> — ${escapeHtml(lastInfo.display)}${lastInfo.note!=null?` — ${notePill(lastInfo.note)}` : (lastInfo.display==='Absent'?'':' — calcul de la note…')}</div>` : '';
+  const nextStudent = currentStudent ? students.find(s=>s.id!==currentId && !isFinished(s.results[testKey])) : null;
+  const nextHtml = nextStudent ? `<div class="entry-card-next">Élève à se préparer : <strong>${escapeHtml(nextStudent.nomPrenom)}</strong> ${sexeIcon(nextStudent.sexe)}</div>` : '';
 
   const entryCardHtml = currentStudent ? `
     <div class="entry-card">
+      ${lastHtml}
       <div class="entry-card-name">${escapeHtml(currentStudent.nomPrenom)} ${sexeIcon(currentStudent.sexe)}</div>
       <div class="entry-card-progress">${doneCount}/${students.length} élève(s) testé(s)</div>
       <div class="entry-card-row">
@@ -1649,7 +1653,7 @@ function renderSimpleNumericTest(classe, testKey){
         <button class="btn-success" onclick="validerEntreeSimple('${escapeHtml(classe)}','${testKey}')">✓ Valider</button>
         <button class="btn-danger" onclick="absentEntreeSimple('${escapeHtml(classe)}','${testKey}')">🚫 Absent</button>
       </div>
-      ${lastHtml}
+      ${nextHtml}
     </div>` : `
     <div class="entry-card">
       <div class="entry-card-done">✅ Tous les élèves ont été évalués</div>
@@ -1762,8 +1766,11 @@ function renderSouplesse(classe){
   const options = SOUPLESSE_LEVELS.map(l=>`<option value="${l.perf}" ${currentResult&&currentResult.perf===l.perf?'selected':''}>${escapeHtml(l.label)}</option>`).join('');
   const lastInfo = lastRecorded[classe+'|souplesse'];
   const lastHtml = lastInfo ? `<div class="entry-card-last">Dernier enregistré : <strong>${escapeHtml(lastInfo.nom)}</strong> — ${escapeHtml(lastInfo.display)}${lastInfo.note!=null?` — ${notePill(lastInfo.note)}` : (lastInfo.display==='Absent'?'':' — calcul de la note…')}</div>` : '';
+  const nextStudent = currentStudent ? students.find(s=>s.id!==currentId && !isFinished(s.results.souplesse)) : null;
+  const nextHtml = nextStudent ? `<div class="entry-card-next">Élève à se préparer : <strong>${escapeHtml(nextStudent.nomPrenom)}</strong> ${sexeIcon(nextStudent.sexe)}</div>` : '';
   const entryCardHtml = currentStudent ? `
     <div class="entry-card">
+      ${lastHtml}
       <div class="entry-card-name">${escapeHtml(currentStudent.nomPrenom)} ${sexeIcon(currentStudent.sexe)}</div>
       <div class="entry-card-progress">${doneCount}/${students.length} élève(s) testé(s)</div>
       <div class="entry-card-row">
@@ -1776,7 +1783,7 @@ function renderSouplesse(classe){
         <button class="btn-success" onclick="validerEntreeSouplesse('${escapeHtml(classe)}')">✓ Valider</button>
         <button class="btn-danger" onclick="absentEntreeSimple('${escapeHtml(classe)}','souplesse')">🚫 Absent</button>
       </div>
-      ${lastHtml}
+      ${nextHtml}
     </div>` : `
     <div class="entry-card">
       <div class="entry-card-done">✅ Tous les élèves ont été évalués</div>
