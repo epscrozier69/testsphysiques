@@ -257,13 +257,20 @@ th.fille-head{background:var(--fille);}
 .niveau-S-text{color:var(--niveau-satisfaisant);font-weight:700;}
 .niveau-T-text{color:var(--niveau-tresbon);font-weight:700;}
 .results-avg-row td{font-weight:800;background:#f1f5f9;border-top:2px solid var(--border);}
-.records-top{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 16px;}
-.records-top-card{flex:1;min-width:220px;border-radius:12px;padding:14px;text-align:center;}
-.records-top-garcon{background:var(--col-1-light);}
-.records-top-fille{background:var(--col-3-light);}
-.records-top-label{font-weight:700;font-size:.85rem;color:var(--muted);margin-bottom:6px;}
-.records-top-name{font-size:1.15rem;font-weight:800;}
-.records-top-value{font-size:1.3rem;font-weight:900;margin-top:4px;}
+.records-table{border-collapse:collapse;min-width:900px;}
+.records-table th,.records-table td{border:1px solid #94a3b8;padding:8px 10px;text-align:center;vertical-align:middle;}
+.records-table thead th{background:#d1d5db;font-weight:800;}
+.records-test-head{white-space:nowrap;}
+.records-recordman-label{background:#dc2626;color:#fff;font-weight:800;font-size:1.05rem;}
+.records-recordman-cell{background:#fde3cc;}
+.records-value{font-weight:800;font-size:1.05rem;}
+.records-holder{font-style:italic;font-weight:600;color:#0f172a;}
+.records-holder-new{color:#dc2626;}
+.records-annee{font-size:.78rem;color:var(--muted);margin-top:4px;}
+.records-annee-inline{font-size:.75rem;color:var(--muted);}
+.records-row-label{background:#e5e7eb;font-weight:700;font-size:.85rem;text-align:left;}
+.records-champion-label{background:#e5e7eb;font-weight:800;text-align:left;vertical-align:middle;min-width:130px;}
+.records-champion-input{width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.85rem;}
 .sort-arrow{font-size:.7rem;opacity:.8;}
 footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:20px;}
 @media(max-width:600px){
@@ -2744,6 +2751,63 @@ const RECORDS_GRADES = [
   {digit:4, niveau:'4eme3eme', label:'4ème'},
   {digit:3, niveau:'4eme3eme', label:'3ème'}
 ];
+// Records historiques du collège Joliot Curie, saisis à la main par la prof
+// (captures d'écran de son tableau existant, 2026-09-08). compareRaw est dans
+// la même unité que TEST_DEFS[testKey].value(r), pour pouvoir comparer
+// directement avec les performances enregistrées dans l'appli (voir
+// RECORD_VALUE_OVERRIDE pour lucLeger, comparé sur le palier plutôt que sur la
+// valeur composite utilisée pour le classement).
+const SCHOOL_RECORDS = {
+  6: {
+    lucLeger:          {display:'Palier 7', compareRaw:7, holders:[{nom:'GOKER Ismaïl', annee:'2025/2026'}]},
+    vitesse:            {display:'5"03', compareRaw:5.03, holders:[{nom:'IDJIHADI Youssef', annee:'2025/2026'}]},
+    longueur:           {display:'2m20', compareRaw:220, holders:[{nom:'AN Jérémie', annee:'2016-2017'}]},
+    detenteVerticale:   {display:'45cm', compareRaw:45, holders:[{nom:'BARKAT Idriss', annee:'2022-2023'}]},
+    pompes:             {display:'72 pompes', compareRaw:72, holders:[{nom:'MERAI Nour', annee:'2021-2022'}]},
+    souplesse:          {display:'20/20', compareRaw:5, holders:[{nom:'KISSI Anissa', annee:'2025-2026'},{nom:'BODJINOU Jessica', annee:'2025-2026'},{nom:'FATMI Israa', annee:'2025-2026'}]}
+  },
+  5: {
+    demiCooper:         {display:'1525m', compareRaw:1525, holders:[{nom:'HANINI Rayan', annee:'2020-2021'}]},
+    vitesse40:          {display:'5"7', compareRaw:5.7, holders:[{nom:'ADRASSE Mathieu', annee:'2021-2022'}]},
+    detenteHorizontale: {display:'2m35', compareRaw:235, holders:[{nom:'AN Jérémie', annee:'2017/2018'}]},
+    detenteVerticale:   {display:'50cm', compareRaw:50, holders:[{nom:'AN Jérémie', annee:'2017/2018'}]},
+    pompes:             {display:'78 pompes', compareRaw:78, holders:[{nom:'ES-SAYAH Yasmine', annee:'2024/2025'}]},
+    souplesse:          {display:'20/20', compareRaw:5, holders:[{nom:'CEZERIAT Lucas', annee:'2025/2026'}]}
+  },
+  4: {
+    demiCooper:         {display:'1800m', compareRaw:1800, holders:[{nom:'DRARI Medhi', annee:'2022/2023'}]},
+    vitesse40:          {display:'5"70', compareRaw:5.70, holders:[{nom:'TLILI Hedi', annee:'2019/2020'}]},
+    detenteHorizontale: {display:'2m50', compareRaw:250, holders:[{nom:'DRARI Medhi', annee:'2022/2023'}]},
+    detenteVerticale:   {display:'50cm', compareRaw:50, holders:[{nom:'BELHIMER Khadija', annee:'2024/2025'},{nom:'GANDOUZ Badis', annee:'2024/2025'},{nom:'ZAKARIA IDRISS Idriss', annee:'2024/2025'},{nom:'KIM Steven', annee:'2024/2025'}]},
+    pompes:             {display:'71 pompes', compareRaw:71, holders:[{nom:'TLILI Hedi', annee:'2019/2020'}]},
+    souplesse:          {display:'20/20', compareRaw:5, holders:[{nom:'MERAI Nour', annee:'2023-2024'},{nom:'BEKHOUCHE Darine', annee:'2023-2024'}]}
+  },
+  3: {
+    demiCooper:         {display:'1850m', compareRaw:1850, holders:[{nom:'SAAYEV Hamzat', annee:'2020-2021'}]},
+    vitesse40:          {display:'5.39', compareRaw:5.39, holders:[{nom:'GOKSAL', annee:'2012-2013'}]},
+    detenteHorizontale: {display:'2m55', compareRaw:255, holders:[{nom:'DRARI Mehdi', annee:'2023/2024'}]},
+    detenteVerticale:   {display:'55cm', compareRaw:55, holders:[{nom:'DRARI Mehdi', annee:'2023-2024'},{nom:'RAZAFIMANDIMBIRAIBE Noa', annee:'2025-2026'}]},
+    pompes:             {display:'65 pompes', compareRaw:65, holders:[{nom:'MARTINEZ Romane', annee:'2023-2024'}]},
+    souplesse:          {display:'20/20', compareRaw:5, holders:[{nom:'ALTIPARMARK Serife', annee:'2025-26'},{nom:'GANDOUZ Badis', annee:'2025-26'}]}
+  }
+};
+// L'endurance Luc Léger se classe (et donc se compare au record) sur le
+// palier atteint, pas sur la valeur composite palier+temps utilisée pour le
+// classement Rg.Gén/Rg.Sexe (qui départage aussi par le temps).
+const RECORD_VALUE_OVERRIDE = {
+  lucLeger: { getValue:r=>r.palier, higherIsBetter:true }
+};
+function recordDisplayValue(testKey, r){
+  if(testKey==='souplesse') return `${r.note!=null?r.note:'—'}/20`;
+  if(testKey==='lucLeger') return `Palier ${r.palier}`;
+  return TEST_DEFS[testKey].display(r);
+}
+function currentSchoolYear(){
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth()+1;
+  const startYear = m>=8 ? y : y-1;
+  return `${startYear}-${startYear+1}`;
+}
 // Renvoie la (les, en cas d'ex-aequo) meilleure(s) entrée(s) d'une liste selon
 // une fonction de valeur, en tenant compte du sens de la performance (temps :
 // plus petit = meilleur ; distance/note : plus grand = meilleur).
@@ -2757,6 +2821,24 @@ function bestByValue(list, valueFn, higherIsBetter){
   const winners = list.filter(item=>valueFn(item)===bestVal);
   return {bestVal, winners};
 }
+// Champion(ne) de l'année : calculé automatiquement (meilleur total /120),
+// mais modifiable à la main (saisie libre conservée tant que non vidée).
+const RECORDS_OVERRIDES_KEY = 'epsJoliotCurie_recordsOverrides_v1';
+let recordsOverrides = {};
+function loadRecordsOverrides(){
+  try{ recordsOverrides = JSON.parse(localStorage.getItem(RECORDS_OVERRIDES_KEY)) || {}; }
+  catch(e){ recordsOverrides = {}; }
+}
+function saveRecordsOverrides(){
+  localStorage.setItem(RECORDS_OVERRIDES_KEY, JSON.stringify(recordsOverrides));
+}
+function setChampionOverride(digit, field, value){
+  if(!recordsOverrides[digit]) recordsOverrides[digit] = {};
+  const v = value.trim();
+  if(v) recordsOverrides[digit][field] = v; else delete recordsOverrides[digit][field];
+  saveRecordsOverrides();
+  renderRecords();
+}
 function renderRecords(){
   const container = qs('#recordsContent');
   if(STATE.order.length===0){ container.innerHTML = '<p class="help-text">Importez d\'abord une classe.</p>'; return; }
@@ -2766,10 +2848,12 @@ function renderRecords(){
       return `<div class="card"><h3>${g.label}</h3><p class="help-text">Aucune classe ${g.label} importée.</p></div>`;
     }
     const testKeys = NIVEAU_TESTS[g.niveau];
+    const schoolRecords = SCHOOL_RECORDS[g.digit] || {};
 
-    // Meilleur garçon / meilleure fille du niveau (total /120) : seulement parmi
-    // les élèves ayant terminé les 6 épreuves du niveau, sinon un total partiel
-    // (ex. une seule très bonne note) fausserait le classement sur 120.
+    // Meilleur garçon / meilleure fille du niveau (total /120), pour le calcul
+    // automatique du "Champion/Championne de l'année" — seulement parmi les
+    // élèves ayant terminé les 6 épreuves (sinon un total partiel fausserait le
+    // classement sur 120).
     const totauxF = [], totauxM = [];
     classes.forEach(classe=>{
       buildResultRows(classe).forEach(row=>{
@@ -2781,27 +2865,67 @@ function renderRecords(){
     });
     const topGarcon = bestByValue(totauxM, e=>e.total, true);
     const topFille = bestByValue(totauxF, e=>e.total, true);
-    const topCard = (label, cls, top) => `
-      <div class="records-top-card ${cls}">
-        <div class="records-top-label">${label} (total /120)</div>
-        ${top.winners.length
-          ? `<div class="records-top-name">${top.winners.map(e=>`${escapeHtml(e.nomPrenom)} (${escapeHtml(e.classe)})`).join(' / ')}</div><div class="records-top-value">${top.bestVal}/120</div>`
-          : `<div class="help-text">Aucun élève n'a encore terminé les ${testKeys.length} épreuves.</div>`}
-      </div>`;
+    const autoSportif = topGarcon.winners.length ? topGarcon.winners.map(e=>`${e.nomPrenom} (${e.classe}) — ${topGarcon.bestVal}/120`).join(' / ') : '';
+    const autoSportive = topFille.winners.length ? topFille.winners.map(e=>`${e.nomPrenom} (${e.classe}) — ${topFille.bestVal}/120`).join(' / ') : '';
+    const ov = recordsOverrides[g.digit] || {};
 
-    const testRows = testKeys.map(testKey=>{
+    const headerCells = testKeys.map((testKey,i)=>`<th class="records-test-head">${i+1} - ${TEST_DEFS[testKey].label}</th>`).join('');
+
+    const recordCells = testKeys.map(testKey=>{
       const def = TEST_DEFS[testKey];
-      // Meilleure classe : moyenne des notes de la classe sur ce test.
+      const override = RECORD_VALUE_OVERRIDE[testKey];
+      const getValue = override ? override.getValue : def.value;
+      const higherIsBetter = override ? override.higherIsBetter : def.higherIsBetter;
+      const allDone = [];
+      classes.forEach(classe=>{
+        STATE.classes[classe].students.forEach(s=>{
+          const r = s.results[def.resultsKey];
+          if(def.isDone(r)) allDone.push({s, r, classe});
+        });
+      });
+      const bestCurrent = bestByValue(allDone, x=>getValue(x.r), higherIsBetter);
+      const hist = schoolRecords[testKey];
+
+      if(!hist){
+        if(!bestCurrent.winners.length) return '<td>—</td>';
+        const names = bestCurrent.winners.map(x=>`<div class="records-holder records-holder-new">${escapeHtml(x.s.nomPrenom)} 🆕</div>`).join('');
+        return `<td class="records-recordman-cell"><div class="records-value">${escapeHtml(recordDisplayValue(testKey,bestCurrent.winners[0].r))}</div>${names}<div class="records-annee">${currentSchoolYear()}</div></td>`;
+      }
+
+      let valueDisplay = hist.display;
+      let holdersHtml = hist.holders.map(h=>`<div class="records-holder">${escapeHtml(h.nom)}</div>`).join('') +
+        (hist.holders.length ? `<div class="records-annee">${escapeHtml(hist.holders.map(h=>h.annee).join(' / '))}</div>` : '');
+
+      if(bestCurrent.winners.length){
+        const beats = higherIsBetter ? bestCurrent.bestVal>hist.compareRaw : bestCurrent.bestVal<hist.compareRaw;
+        const ties = bestCurrent.bestVal===hist.compareRaw;
+        if(beats){
+          // Record battu : on remplace entièrement par le(s) nouveau(x) recordman(s).
+          valueDisplay = recordDisplayValue(testKey, bestCurrent.winners[0].r);
+          holdersHtml = bestCurrent.winners.map(x=>`<div class="records-holder records-holder-new">${escapeHtml(x.s.nomPrenom)} 🆕</div>`).join('') +
+            `<div class="records-annee">${currentSchoolYear()}</div>`;
+        } else if(ties){
+          // Égalité : on garde le(s) ancien(s) recordman(s) et on ajoute le(s)
+          // nouveau(x) en rouge, comme observé sur le tableau 3ème (détente
+          // verticale : DRARI Mehdi + RAZAFIMANDIMBIRAIBE Noa à 55cm).
+          holdersHtml = hist.holders.map(h=>`<div class="records-holder">${escapeHtml(h.nom)} <span class="records-annee-inline">(${escapeHtml(h.annee)})</span></div>`).join('') +
+            bestCurrent.winners.map(x=>`<div class="records-holder records-holder-new">${escapeHtml(x.s.nomPrenom)} 🆕 <span class="records-annee-inline">(${currentSchoolYear()})</span></div>`).join('');
+        }
+      }
+
+      return `<td class="records-recordman-cell"><div class="records-value">${escapeHtml(valueDisplay)}</div>${holdersHtml}</td>`;
+    }).join('');
+
+    const testRows = testKeys.map((testKey,i)=>{
+      const def = TEST_DEFS[testKey];
       const classAverages = classes
         .map(classe=>({classe, avgNote:computeClassAverage(classe, testKey).avgNote}))
         .filter(x=>x.avgNote!=null);
       const bestClasse = bestByValue(classAverages, x=>x.avgNote, true);
       const classeCell = bestClasse.winners.length
-        ? `${bestClasse.winners.map(x=>escapeHtml(x.classe)).join(' / ')} <span class="help-text">(${bestClasse.bestVal}/20 de moy.)</span>`
+        ? `${escapeHtml(bestClasse.winners.map(x=>x.classe).join(' / '))} <span class="help-text">(${bestClasse.bestVal}/20 de moy.)</span>`
         : '—';
 
-      // Meilleure fille / meilleur garçon : sur la performance brute, comme le
-      // classement Rg.Sexe (même fonctions value/higherIsBetter que le tri).
       const filles = [], garcons = [];
       classes.forEach(classe=>{
         STATE.classes[classe].students.forEach(s=>{
@@ -2815,20 +2939,28 @@ function renderRecords(){
       const perfCell = list => list.winners.length
         ? list.winners.map(x=>`${escapeHtml(x.s.nomPrenom)} (${escapeHtml(x.classe)}) — ${escapeHtml(def.display(x.r))}`).join('<br>')
         : '—';
+      return {classeCell, filleCell:perfCell(bestFille), garconCell:perfCell(bestGarcon)};
+    });
 
-      return `<tr style="${bgLight(def.colorVar)}"><td>${def.label}</td><td>${classeCell}</td><td>${perfCell(bestFille)}</td><td>${perfCell(bestGarcon)}</td></tr>`;
-    }).join('');
-
-    const thead = `<thead><tr style="background:var(--col-1);"><th>Test</th><th>Meilleure classe</th><th>♀ Meilleure fille</th><th>♂ Meilleur garçon</th></tr></thead>`;
+    const champRowspan = 5;
+    const champLabelCell = `<td class="records-champion-label" rowspan="${champRowspan}">Champion de l'année<br>${currentSchoolYear()}</td>`;
 
     return `
       <div class="card">
-        <h3>${g.label}</h3>
-        <div class="records-top">
-          ${topCard('🥇 Meilleur garçon', 'records-top-garcon', topGarcon)}
-          ${topCard('🥇 Meilleure fille', 'records-top-fille', topFille)}
+        <h3>RÉSULTATS DES TESTS PHYSIQUES ${g.label.toUpperCase()}</h3>
+        <div class="table-wrapper">
+          <table class="records-table">
+            <thead><tr><th></th><th></th>${headerCells}</tr></thead>
+            <tbody>
+              <tr><td colspan="2" class="records-recordman-label">Recordman de Joliot</td>${recordCells}</tr>
+              <tr>${champLabelCell}<td class="records-row-label">Classe (moyenne de classe)</td>${testRows.map(r=>`<td>${r.classeCell}</td>`).join('')}</tr>
+              <tr><td class="records-row-label">Meilleure performance fille</td>${testRows.map(r=>`<td>${r.filleCell}</td>`).join('')}</tr>
+              <tr><td class="records-row-label">Meilleure performance garçon</td>${testRows.map(r=>`<td>${r.garconCell}</td>`).join('')}</tr>
+              <tr><td class="records-row-label">Sportive de l'année :</td><td colspan="${testKeys.length}"><input type="text" class="records-champion-input" placeholder="${escapeHtml(autoSportive||'—')}" value="${escapeHtml(ov.sportive||'')}" onchange="setChampionOverride(${g.digit},'sportive',this.value)"></td></tr>
+              <tr><td class="records-row-label">Sportif de l'année :</td><td colspan="${testKeys.length}"><input type="text" class="records-champion-input" placeholder="${escapeHtml(autoSportif||'—')}" value="${escapeHtml(ov.sportif||'')}" onchange="setChampionOverride(${g.digit},'sportif',this.value)"></td></tr>
+            </tbody>
+          </table>
         </div>
-        <div class="table-wrapper compact"><table>${thead}<tbody>${testRows}</tbody></table></div>
       </div>`;
   }).join('');
 }
@@ -2984,6 +3116,7 @@ function exportExcel(){
 /* ===================== INIT ===================== */
 document.addEventListener('DOMContentLoaded', ()=>{
   loadState();
+  loadRecordsOverrides();
   renderMainTabs();
   STATE.order.forEach(renderClassTab);
   if(STATE.order.length){
