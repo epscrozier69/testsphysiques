@@ -257,20 +257,20 @@ th.fille-head{background:var(--fille);}
 .niveau-S-text{color:var(--niveau-satisfaisant);font-weight:700;}
 .niveau-T-text{color:var(--niveau-tresbon);font-weight:700;}
 .results-avg-row td{font-weight:800;background:#f1f5f9;border-top:2px solid var(--border);}
-.records-table{border-collapse:collapse;min-width:900px;}
-.records-table th,.records-table td{border:1px solid #94a3b8;padding:8px 10px;text-align:center;vertical-align:middle;}
-.records-table thead th{background:#d1d5db;font-weight:800;}
-.records-test-head{white-space:nowrap;}
-.records-recordman-label{background:#dc2626;color:#fff;font-weight:800;font-size:1.05rem;}
+.records-table{border-collapse:collapse;width:100%;table-layout:fixed;}
+.records-table th,.records-table td{border:1px solid #94a3b8;padding:4px 5px;text-align:center;vertical-align:middle;font-size:.75rem;overflow-wrap:break-word;line-height:1.25;}
+.records-table thead th{background:#d1d5db;font-weight:800;font-size:.72rem;}
+.records-test-head{white-space:normal;}
+.records-recordman-label{background:#dc2626;color:#fff;font-weight:800;font-size:.82rem;}
 .records-recordman-cell{background:#fde3cc;}
-.records-value{font-weight:800;font-size:1.05rem;}
-.records-holder{font-style:italic;font-weight:600;color:#0f172a;}
+.records-value{font-weight:800;font-size:.82rem;}
+.records-holder{font-style:italic;font-weight:600;color:#0f172a;font-size:.72rem;}
 .records-holder-new{color:#dc2626;}
-.records-annee{font-size:.78rem;color:var(--muted);margin-top:4px;}
-.records-annee-inline{font-size:.75rem;color:var(--muted);}
-.records-row-label{background:#e5e7eb;font-weight:700;font-size:.85rem;text-align:left;}
-.records-champion-label{background:#e5e7eb;font-weight:800;text-align:left;vertical-align:middle;min-width:130px;}
-.records-champion-input{width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:.85rem;}
+.records-annee{font-size:.66rem;color:var(--muted);margin-top:2px;}
+.records-annee-inline{font-size:.63rem;color:var(--muted);}
+.records-row-label{background:#e5e7eb;font-weight:700;font-size:.72rem;text-align:left;}
+.records-champion-label{background:#e5e7eb;font-weight:800;text-align:left;vertical-align:middle;font-size:.75rem;}
+.records-champion-input{width:100%;border:1px solid var(--border);border-radius:6px;padding:3px 5px;font-size:.75rem;}
 .sort-arrow{font-size:.7rem;opacity:.8;}
 footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:20px;}
 @media(max-width:600px){
@@ -2944,12 +2944,18 @@ function renderRecords(){
 
     const champRowspan = 5;
     const champLabelCell = `<td class="records-champion-label" rowspan="${champRowspan}">Champion de l'année<br>${currentSchoolYear()}</td>`;
+    // colgroup plutôt que nth-child : avec le rowspan de la colonne "Champion
+    // de l'année", l'index des <td> n'est pas le même sur toutes les lignes,
+    // donc seul un <col> positionnel garde des largeurs de colonne stables.
+    const testColWidth = (100-9-13)/testKeys.length;
+    const colgroup = `<colgroup><col style="width:9%"><col style="width:13%">${testKeys.map(()=>`<col style="width:${testColWidth.toFixed(2)}%">`).join('')}</colgroup>`;
 
     return `
       <div class="card">
         <h3>RÉSULTATS DES TESTS PHYSIQUES ${g.label.toUpperCase()}</h3>
         <div class="table-wrapper">
           <table class="records-table">
+            ${colgroup}
             <thead><tr><th></th><th></th>${headerCells}</tr></thead>
             <tbody>
               <tr><td colspan="2" class="records-recordman-label">Recordman de Joliot</td>${recordCells}</tr>
