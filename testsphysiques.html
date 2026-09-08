@@ -257,8 +257,15 @@ th.fille-head{background:var(--fille);}
 .niveau-S-text{color:var(--niveau-satisfaisant);font-weight:700;}
 .niveau-T-text{color:var(--niveau-tresbon);font-weight:700;}
 .results-avg-row td{font-weight:800;background:#f1f5f9;border-top:2px solid var(--border);}
-.records-table{border-collapse:collapse;width:100%;table-layout:fixed;}
-.records-table th,.records-table td{border:1px solid #94a3b8;padding:4px 5px;text-align:center;vertical-align:middle;font-size:.75rem;overflow-wrap:anywhere;word-break:break-word;line-height:1.25;}
+.records-table{border-collapse:collapse;width:100%;table-layout:fixed;min-width:0;font-size:inherit;}
+.records-table th,.records-table td{border:1px solid #94a3b8;padding:4px 5px;text-align:center;vertical-align:middle;font-size:.75rem;overflow-wrap:anywhere;word-break:break-word;line-height:1.25;white-space:normal;}
+/* Spécificité : la règle générique ".table-wrapper table td:first-child{width:1%}"
+   (159/166, pensée pour les autres tableaux de l'app) est plus spécifique qu'une
+   simple règle ".records-table td:first-child" et l'écrasait, réduisant la
+   colonne d'étiquette à presque rien et faisant déborder le texte sur les
+   colonnes voisines (chevauchement constaté sur iPad). #recordsContent (ID)
+   garantit que cette règle gagne. */
+#recordsContent .records-table th:first-child,#recordsContent .records-table td:first-child{width:15%;}
 .records-perf-value{font-weight:700;color:var(--primary-dark);margin-top:2px;}
 .records-table thead th{background:#d1d5db;font-weight:800;font-size:.72rem;}
 .records-test-head{white-space:normal;}
@@ -2951,15 +2958,6 @@ function renderRecords(){
       return {classeCell, filleCell:perfCell(bestFille), garconCell:perfCell(bestGarcon)};
     });
 
-    // Une seule colonne d'étiquette (pas 2) : sur iPad (Safari), le rowspan de
-    // la colonne "Champion de l'année" combiné à table-layout:fixed + colgroup
-    // faisait déborder/chevaucher le texte entre colonnes (bug WebKit connu :
-    // rowspan qui décale l'index des <td> sur les lignes suivantes). Le titre
-    // "Champion de l'année" devient une ligne pleine largeur au-dessus, comme
-    // "Recordman de Joliot", ce qui évite complètement le rowspan.
-    const labelWidth = 15;
-    const testColWidth = (100-labelWidth)/testKeys.length;
-    const colgroup = `<colgroup><col style="width:${labelWidth}%">${testKeys.map(()=>`<col style="width:${testColWidth.toFixed(2)}%">`).join('')}</colgroup>`;
     const nCols = 1+testKeys.length;
 
     return `
@@ -2967,7 +2965,6 @@ function renderRecords(){
         <h3>RÉSULTATS DES TESTS PHYSIQUES ${g.label.toUpperCase()}</h3>
         <div class="table-wrapper">
           <table class="records-table">
-            ${colgroup}
             <thead><tr><th></th>${headerCells}</tr></thead>
             <tbody>
               <tr><td class="records-recordman-label">Recordman de Joliot</td>${recordCells}</tr>
