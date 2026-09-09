@@ -190,6 +190,14 @@ thead th.sticky-col{background:#334155;z-index:3;}
 .sexe-icon-editable:hover{opacity:.7;}
 .compact th,.compact td{padding:4px 6px;font-size:.78rem;}
 #resultatsTable thead th,.stat-table thead th{position:static;}
+/* Tient sur un écran d'iPad sans scroll horizontal : largeur fixe à 100%
+   (jamais plus large que l'écran), en-têtes et cellules qui passent à la
+   ligne au besoin au lieu de forcer une colonne large (white-space:nowrap
+   hérité de la règle générique th,td est neutralisé ici). #resultatsTable
+   (ID) prime sur les règles génériques, indépendamment de leur ordre. */
+#resultatsTable{table-layout:fixed;width:100%;min-width:0;}
+#resultatsTable th,#resultatsTable td{white-space:normal;overflow-wrap:anywhere;word-break:break-word;text-align:center;padding:4px 3px;font-size:.68rem;line-height:1.2;}
+#resultatsTable th:first-child,#resultatsTable td:first-child{width:13%;text-align:left;}
 .table-wrapper table tbody tr:nth-child(even) td{filter:brightness(0.93);}
 .reset-icon{background:none;border:none;cursor:pointer;font-size:.85rem;padding:0 4px;min-height:auto;color:var(--muted);}
 .tour-undo-btn{color:#dc2626;}
