@@ -2677,12 +2677,20 @@ function renderResultats(){
   });
   const thead = `<thead><tr>${row1}</tr></thead>`;
 
+  // Meilleur total /120 par sexe (ex-aequo tous mis en évidence, même logique
+  // que le podium du classement Rg.Sexe et de l'onglet Records).
+  const bestTotalM = bestByValue(rows.filter(r=>r.sexe==='M' && typeof r.total==='number'), r=>r.total, true);
+  const bestTotalF = bestByValue(rows.filter(r=>r.sexe==='F' && typeof r.total==='number'), r=>r.total, true);
+  const bestTotalIdsM = new Set(bestTotalM.winners.map(r=>r.id));
+  const bestTotalIdsF = new Set(bestTotalF.winners.map(r=>r.id));
+
   const tbody = '<tbody>'+rows.map(r=>{
     return '<tr>'+displayCols.map((c,i)=>{
       let val = r[c.key];
       let display;
       if(c.key==='sexe') display = val==='M' ? 'G' : escapeHtml(String(val));
       else if(c.key.endsWith('note')) display = (typeof val==='number') ? noteColorPill(val) : val;
+      else if(c.key==='total' && (bestTotalIdsM.has(r.id) || bestTotalIdsF.has(r.id))) display = `<span class="${bestTotalIdsM.has(r.id)?'podium-garcon':'podium-fille'}">${escapeHtml(String(val))}</span>`;
       else display = escapeHtml(String(val));
       const sticky = i===0 ? ' sticky-col' : '';
       return `<td class="${sticky}" style="${bgLight(c.colorVar)}">${display}</td>`;
