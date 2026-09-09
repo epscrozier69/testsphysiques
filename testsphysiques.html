@@ -179,6 +179,10 @@ thead th.sticky-col{background:#334155;z-index:3;}
 .niveau-T{background:var(--niveau-tresbon);}
 .niveau-abs{background:#94a3b8;}
 .note-badge{display:inline-block;padding:1px 7px;border-radius:999px;background:#1e293b;color:#fff;font-weight:700;font-size:.7rem;margin-left:3px;}
+.note-badge.niveau-A{background:var(--niveau-abesoin);}
+.note-badge.niveau-F{background:var(--niveau-fragile);}
+.note-badge.niveau-S{background:var(--niveau-satisfaisant);}
+.note-badge.niveau-T{background:var(--niveau-tresbon);}
 .sexe-icon{font-weight:900;font-size:1rem;}
 .sexe-icon.sexe-F{color:var(--fille);}
 .sexe-icon.sexe-M{color:var(--garcon);}
@@ -502,6 +506,13 @@ function niveauClass(niveau){
 function notePill(note){
   if(note==null || isNaN(note)) return '';
   return `<span class="note-badge">${note}/20</span>`;
+}
+// Même 4 couleurs que le niveau (A besoins/Fragile/Satisfaisant/Très bon
+// niveau), appliquées directement sur la note : utilisé dans l'onglet
+// Résultats pour repérer un niveau d'un coup d'œil sans colonne Niveau à part.
+function noteColorPill(note){
+  if(note==null || isNaN(note)) return '—';
+  return `<span class="note-badge ${niveauClass(niveauFromNote(note))}">${note}/20</span>`;
 }
 function bgLight(colorVar){ return `background:var(${colorVar}-light);`; }
 function sexeIcon(sexe, classe, studentId){
@@ -2648,30 +2659,30 @@ function renderResultats(){
   let rows = buildResultRows(classe);
   rows.sort((a,b)=>compareForSort(a,b,resultatsSort.key,resultatsSort.dir));
 
+  // Un seul <td> par test (juste la note, colorée par niveau) au lieu de 3
+  // (Performance/Niveau/Note) : la couleur de la note suffit à repérer le
+  // niveau d'un coup d'œil, la performance brute reste consultable dans
+  // l'onglet de la classe ou dans l'export Excel.
+  const displayCols = columns.filter(c=>!c.key.endsWith('_resultat') && !c.key.endsWith('_niveau'));
+
   const sortArrow = key => resultatsSort.key===key ? (resultatsSort.dir==='asc'?'▲':'▼') : '';
-  let row1 = `<th class="sticky-col" style="background:var(--col-1);" rowspan="2" onclick="onSortResultats('nomPrenom')">Nom ${sortArrow('nomPrenom')}</th>`;
-  row1 += `<th style="background:var(--col-2);" rowspan="2" onclick="onSortResultats('classe')">Classe ${sortArrow('classe')}</th>`;
-  row1 += `<th style="background:var(--col-3);" rowspan="2" onclick="onSortResultats('sexe')">Sexe ${sortArrow('sexe')}</th>`;
-  row1 += `<th style="background:var(--col-1);" rowspan="2" onclick="onSortResultats('total')">Total /120 ${sortArrow('total')}</th>`;
-  row1 += `<th style="background:var(--col-1);" rowspan="2" onclick="onSortResultats('moyenne')">Moyenne /20 ${sortArrow('moyenne')}</th>`;
-  let row2 = '';
+  let row1 = `<th class="sticky-col" style="background:var(--col-1);" onclick="onSortResultats('nomPrenom')">Nom ${sortArrow('nomPrenom')}</th>`;
+  row1 += `<th style="background:var(--col-2);" onclick="onSortResultats('classe')">Classe ${sortArrow('classe')}</th>`;
+  row1 += `<th style="background:var(--col-3);" onclick="onSortResultats('sexe')">Sexe ${sortArrow('sexe')}</th>`;
+  row1 += `<th style="background:var(--col-1);" onclick="onSortResultats('total')">Total /120 ${sortArrow('total')}</th>`;
+  row1 += `<th style="background:var(--col-1);" onclick="onSortResultats('moyenne')">Moyenne /20 ${sortArrow('moyenne')}</th>`;
   NIVEAU_TESTS[niveau].forEach(testKey=>{
     const def = TEST_DEFS[testKey];
-    const colorVar = def.colorVar;
-    row1 += `<th colspan="3" style="background:var(${colorVar});">${def.label}</th>`;
-    row2 += `<th style="background:var(${colorVar});" onclick="onSortResultats('${testKey}_resultat')">Performance ${sortArrow(testKey+'_resultat')}</th>`;
-    row2 += `<th style="background:var(${colorVar});" onclick="onSortResultats('${testKey}_niveau')">Niveau ${sortArrow(testKey+'_niveau')}</th>`;
-    row2 += `<th style="background:var(${colorVar});" onclick="onSortResultats('${testKey}_note')">Note ${sortArrow(testKey+'_note')}</th>`;
+    row1 += `<th style="background:var(${def.colorVar});" onclick="onSortResultats('${testKey}_note')">${def.label} ${sortArrow(testKey+'_note')}</th>`;
   });
-  const thead = `<thead><tr>${row1}</tr><tr>${row2}</tr></thead>`;
+  const thead = `<thead><tr>${row1}</tr></thead>`;
 
   const tbody = '<tbody>'+rows.map(r=>{
-    return '<tr>'+columns.map((c,i)=>{
+    return '<tr>'+displayCols.map((c,i)=>{
       let val = r[c.key];
       let display;
       if(c.key==='sexe') display = val==='M' ? 'G' : escapeHtml(String(val));
-      else if(c.key.endsWith('niveau')) display = val==='—' ? '—' : niveauPill(val);
-      else if(c.key.endsWith('note')) display = (typeof val==='number') ? notePill(val) : val;
+      else if(c.key.endsWith('note')) display = (typeof val==='number') ? noteColorPill(val) : val;
       else display = escapeHtml(String(val));
       const sticky = i===0 ? ' sticky-col' : '';
       return `<td class="${sticky}" style="${bgLight(c.colorVar)}">${display}</td>`;
@@ -2680,10 +2691,7 @@ function renderResultats(){
 
   let tfoot = `<tfoot><tr class="results-avg-row"><td class="sticky-col">Moyenne de la classe</td><td></td><td></td><td></td><td></td>`;
   NIVEAU_TESTS[niveau].forEach(testKey=>{
-    const def = TEST_DEFS[testKey];
-    const { avgValue, avgNote } = computeClassAverage(classe, testKey);
-    tfoot += `<td>${avgValue!=null?avgValue+' '+def.unite:'—'}</td>`;
-    tfoot += `<td>—</td>`;
+    const { avgNote } = computeClassAverage(classe, testKey);
     tfoot += `<td>${avgNote!=null?avgNote+'/20':'—'}</td>`;
   });
   tfoot += `</tr></tfoot>`;
