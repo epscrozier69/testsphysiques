@@ -2390,7 +2390,12 @@ function renderVitesse40Roster(classe, students){
   const rowsArr = students.map((s,i)=>{
     const r = s.results.vitesse40;
     const niveau = r && !isNonNote(r) && r.temps!=null ? niveauFromNote(r.note) : null;
-    const clickable = pending>0 && !r;
+    // !r seul ne suffit pas : un test réinitialisé laisse un objet {cleared:true}
+    // (truthy) pour ne pas être réabsorbé par la synchro comme "jamais testé" ;
+    // il faut donc vérifier l'absence de temps, pas juste l'absence d'objet
+    // (même bug déjà corrigé une fois pour le sprint 30m des 6ème).
+    const nonTeste = !r || r.temps==null;
+    const clickable = pending>0 && nonTeste && !isNonNote(r);
     const nomCell = clickable
       ? `<span class="dc-tile">🏁 ${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe, classe, s.id)}</span>`
       : `${i+1}. ${escapeHtml(s.nomPrenom)} ${sexeIcon(s.sexe, classe, s.id)}`;
