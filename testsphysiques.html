@@ -90,6 +90,8 @@ nav.tabs{
 .tab-btn.tab-delete-open{background:#fee2e2;color:#b91c1c;border:1px dashed #dc2626;padding:6px 10px;font-size:.75rem;min-height:32px;}
 .tab-btn.tab-group-gap{margin-left:24px;}
 .tab-btn.tab-add{background:#f0fdf4;color:#166534;border:1px dashed #16a34a;}
+.tab-btn.tab-save{background:#eff6ff;color:#1d4ed8;border:1px dashed #2563eb;}
+.tab-btn.tab-restore{background:#fff7ed;color:#c2410c;border:1px dashed #ea580c;}
 main{padding:10px 16px;max-width:1400px;margin:0 auto;}
 .tab-panel{display:none;}
 .tab-panel.active{display:block;animation:fadeIn .2s ease;}
@@ -392,6 +394,8 @@ footer.app-footer{text-align:center;color:var(--muted);font-size:.78rem;padding:
     </div>
   </div>
 </div>
+
+<input type="file" id="importJSONInput" accept=".json,application/json" class="hidden" onchange="handleImportJSONFile(event)">
 
 <footer class="app-footer">Collège Joliot Curie — Outil de suivi des tests physiques</footer>
 
@@ -1218,6 +1222,20 @@ function renderMainTabs(){
     btn.onclick=()=>switchTab(tabId);
     nav.appendChild(btn);
   });
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className='tab-btn tab-save tab-group-gap';
+  saveBtn.textContent='💾 Sauvegarde';
+  saveBtn.title='Télécharger une sauvegarde .json de toutes les données';
+  saveBtn.onclick = exportJSON;
+  nav.appendChild(saveBtn);
+
+  const restoreBtn = document.createElement('button');
+  restoreBtn.className='tab-btn tab-restore';
+  restoreBtn.textContent='📂 Restaurer';
+  restoreBtn.title='Restaurer une sauvegarde .json précédemment téléchargée';
+  restoreBtn.onclick = triggerImportJSON;
+  nav.appendChild(restoreBtn);
 
   // s'assurer que les panneaux de classe existent
   STATE.order.forEach(classe=>{
@@ -3165,6 +3183,54 @@ function exportExcel(){
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+}
+
+/* ===================== SAUVEGARDE / RESTAURATION JSON ===================== */
+function exportJSON(){
+  const rawState = localStorage.getItem(STORAGE_KEY);
+  const backup = {
+    app: 'epsJoliotCurie_testsPhysiques',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    state: rawState ? JSON.parse(rawState) : {classes:{}, order:[]},
+    recordsOverrides: recordsOverrides
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0,10);
+  a.href = URL.createObjectURL(blob);
+  a.download = `sauvegarde_tests_physiques_${dateStr}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+function triggerImportJSON(){
+  qs('#importJSONInput').value = '';
+  qs('#importJSONInput').click();
+}
+function handleImportJSONFile(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    let backup;
+    try{ backup = JSON.parse(reader.result); }
+    catch(e){ alert('Fichier illisible : ce n\'est pas un JSON valide.'); return; }
+    if(!backup || !backup.state || !Array.isArray(backup.state.order)){
+      alert('Fichier invalide : ce n\'est pas une sauvegarde de cette application.');
+      return;
+    }
+    const confirmMsg = `Restaurer cette sauvegarde (exportée le ${backup.exportedAt ? new Date(backup.exportedAt).toLocaleString('fr-FR') : 'date inconnue'}) ?\n\nToutes les données actuelles sur cet appareil (${STATE.order.length} classe(s)) seront remplacées. Cette action est irréversible.`;
+    if(!confirm(confirmMsg)) return;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(backup.state));
+    if(backup.recordsOverrides){
+      localStorage.setItem(RECORDS_OVERRIDES_KEY, JSON.stringify(backup.recordsOverrides));
+    }
+    alert('Sauvegarde restaurée. La page va se recharger.');
+    location.reload();
+  };
+  reader.readAsText(file);
 }
 
 /* ===================== INIT ===================== */
